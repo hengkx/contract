@@ -1,0 +1,1 @@
+npx hardhat verify --network rinkeby 0xef79615C58C5aEaF137d9A16f54349163e3688FC
