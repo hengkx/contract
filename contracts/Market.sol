@@ -17,10 +17,11 @@ contract Market {
 
     function getKey(address tokenAddress, uint256 tokenId)
         private
-        pure
+        view
         returns (bytes memory)
     {
-        return abi.encodePacked(tokenAddress, tokenId);
+        ERC721Tradable nft = ERC721Tradable(tokenAddress);
+        return abi.encodePacked(tokenAddress, nft.ownerOf(tokenId), tokenId);
     }
 
     function createSellOrder(
@@ -51,6 +52,26 @@ contract Market {
         return _assetPrices[key];
     }
 
+    function _settlement(
+        ERC721Tradable.Recipient[] memory recipients,
+        uint256 amount
+    ) private {
+        uint256 paid = 0;
+        uint256 len = recipients.length;
+        for (uint256 i = 0; i < len - 1; i++) {
+            ERC721Tradable.Recipient memory recipient = recipients[i];
+            uint256 currentFee = SafeMath.div(
+                SafeMath.mul(amount, recipient.points),
+                100
+            );
+            payable(address(recipient.recipient)).transfer(currentFee);
+            paid += currentFee;
+        }
+        payable(address(recipients[len - 1].recipient)).transfer(
+            SafeMath.sub(amount, paid)
+        );
+    }
+
     function buy(address tokenAddress, uint256 tokenId) public payable {
         ERC721Tradable nft = ERC721Tradable(tokenAddress);
         bytes memory key = getKey(tokenAddress, tokenId);
@@ -58,11 +79,18 @@ contract Market {
         address owner = nft.ownerOf(tokenId);
         require(_assetPrices[key] == msg.value, "Invalid price");
         require(owner != msg.sender, "It's already yours");
-        uint256 fee = SafeMath.div(msg.value, 10);
-        payable(owner).transfer(msg.value - fee);
-        payable(address(0x43d6914F10151A3dB15D7aB32bf4c5cD44c48210)).transfer(
-            fee
+        uint256 fee = SafeMath.div(
+            SafeMath.mul(msg.value, nft.getSellerFeeBasisPoints()),
+            100
         );
+        uint256 amount = SafeMath.sub(msg.value, fee);
+        if (nft.getTracnsferCount(tokenId) == 0) {
+            _settlement(nft.getSaleRecipients(), amount);
+        } else {
+            payable(address(owner)).transfer(amount);
+        }
+        _settlement(nft.getFeeRecipients(), fee);
+
         nft.safeTransferFrom(owner, msg.sender, tokenId);
     }
 }

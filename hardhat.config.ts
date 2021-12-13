@@ -1,9 +1,9 @@
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-etherscan';
 import { HardhatUserConfig } from 'hardhat/config';
+import dotenv from 'dotenv';
 
-require('dotenv').config();
-const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const { PRIVATE_KEY, ETHERSCAN_KEY } = dotenv.config().parsed || {};
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'rinkeby',
@@ -14,9 +14,17 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: '465ZTAAG1FFW2PG7MZICQXZ5TDFHAHDUVJ',
+    apiKey: ETHERSCAN_KEY,
   },
-  solidity: '0.8.10',
+  solidity: {
+    version: '0.8.9',
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
 };
 
 export default config;
