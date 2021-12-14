@@ -1,29 +1,115 @@
-import { ethers } from 'hardhat';
-import { Signer } from 'ethers';
+import { ethers, waffle } from 'hardhat';
+import { Contract, Signer, utils } from 'ethers';
 import { expect } from 'chai';
-import ERC721Tradable from '../artifacts/contracts/ERC721Tradable.sol/ERC721Tradable.json';
 
-const market = '0xef79615C58C5aEaF137d9A16f54349163e3688FC';
+const provider = waffle.provider;
 
-const nftAddress = '0x8e022E73cF067532810bf3FA6E1216E2709fb488';
+const feeRecipients = [
+  ['0x43d6914F10151A3dB15D7aB32bf4c5cD44c48210', 50],
+  ['0x03c2635bDB921baA8af02A2fF97015109966B24b', 50],
+] as const;
+
+const saleRecipients = [
+  ['0x03c2635bDB921baA8af02A2fF97015109966B24b', 30],
+  ['0xA63543a9ca882CA4584AF26f10E4161D67517358', 70],
+] as const;
 
 const url =
   'https://4chdy7nzhyneeemy5zgnudwqzkp37zt4rfxwpc7ybv5ie5qsme7a.arweave.net/4I48fbk-GkIRmO5M2g7Qyp-_5nyJb2eL-A16gnYSYT4';
 
-describe('Token', function () {
+const feePoints = 20;
+
+describe('Contract', function () {
   let accounts: Signer[];
+  let market: Contract;
+  let nft: Contract;
+  let nft1155: Contract;
 
   beforeEach(async function () {
     accounts = await ethers.getSigners();
+    const Market = await ethers.getContractFactory('Market');
+    market = await Market.deploy();
+    const NFT = await ethers.getContractFactory('ERC721Tradable');
+    nft = await NFT.deploy(
+      market.address,
+      saleRecipients,
+      feePoints,
+      feeRecipients,
+      '',
+    );
+    const NFT1155 = await ethers.getContractFactory('ERC1155Tradable');
+    nft1155 = await NFT1155.deploy(
+      market.address,
+      saleRecipients,
+      20,
+      feeRecipients,
+      '',
+    );
   });
 
-  it('It should deploy the contract, mint a token, and resolve to the right URI', async function () {
-    // const NFT = await ethers.getContractFactory('MyNFT');
-    // const nft = await NFT.deploy();
-    const nft = new ethers.Contract(nftAddress, ERC721Tradable.abi);
-    const URI = url;
-    await nft.mint('0x9454c9090074e7377ed6f8645708Dd529B3b0C15', URI);
-    expect(await nft.tokenURI(1)).to.equal(URI);
-    // Do something with the accounts
+  // it('721', async function () {
+  //   const account = await accounts[0].getAddress();
+
+  //   const res = await (await nft.mint(account, url)).wait();
+  //   const tokenId = res.events[0].args.tokenId;
+  //   let price = utils.parseEther('1');
+  //   await market.createSellOrder(nft.address, tokenId, price, 1, false);
+  //   expect((await market.getPrice(nft.address, tokenId)).toString()).to.equal(
+  //     price.toString(),
+  //   );
+  //   await market
+  //     .connect(accounts[1])
+  //     .buy(nft.address, tokenId, { value: price });
+  //   expect(await nft.ownerOf(tokenId)).to.equal(await accounts[1].getAddress());
+  //   // console.log(await Promise.all(accounts.map((item) => item.getAddress())));
+
+  //   let fee = price.mul(feePoints).div(100);
+  //   expect(await provider.getBalance(feeRecipients[0][0])).to.equal(
+  //     fee.mul(feeRecipients[0][1]).div(100),
+  //   );
+  //   expect(await provider.getBalance(feeRecipients[1][0])).to.equal(
+  //     fee
+  //       .mul(feeRecipients[1][1])
+  //       .div(100)
+  //       .add(price.sub(fee).mul(saleRecipients[0][1]).div(100)),
+  //   );
+  //   price = price.mul(2);
+  //   await market
+  //     .connect(accounts[1])
+  //     .createSellOrder(nft.address, tokenId, price, 1, false);
+
+  //   let feeBalance = await provider.getBalance(feeRecipients[0][0]);
+  //   await market
+  //     .connect(accounts[2])
+  //     .buy(nft.address, tokenId, { value: price });
+  //   fee = price.mul(feePoints).div(100);
+  //   expect(
+  //     (await provider.getBalance(feeRecipients[0][0])).sub(feeBalance),
+  //   ).to.equal(fee.mul(feeRecipients[0][1]).div(100));
+  // });
+
+  it('1155', async function () {
+    const account = await accounts[0].getAddress();
+    const address = nft1155.address;
+    let res = await (await nft1155.mint(account, 10, url)).wait();
+    const tokenId = res.events[0].args.id;
+    let price = utils.parseEther('1');
+    res = await (
+      await market.createSellOrder(address, tokenId, price, 1, true)
+    ).wait();
+    let orderId = res.events[0].args.itemId;
+    // expect((await market.getPrice(address, tokenId)).toString()).to.equal(
+    //   price.toString(),
+    // );
+    await market.connect(accounts[1]).buy1155(orderId, 1, { value: price });
+    // expect(await nft.ownerOf(tokenId)).to.equal(await accounts[1].getAddress());
+    res = await (
+      await market
+        .connect(accounts[1])
+        .createSellOrder(address, tokenId, price, 1, true)
+    ).wait();
+    orderId = res.events[0].args.itemId;
+    console.log(orderId);
+    await market.connect(accounts[2]).buy1155(orderId, 1, { value: price });
   });
 });
