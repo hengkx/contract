@@ -70,7 +70,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         return super.isApprovedForAll(owner, operator);
     }
 
-    function burn(uint256 tokenId) public virtual whenNotPaused {
+    function burn(uint256 tokenId) public whenNotPaused {
         require(
             _isApprovedOrOwner(_msgSender(), tokenId),
             "ERC721Burnable: caller is not owner nor approved"
@@ -79,11 +79,11 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         delete _creators[tokenId];
     }
 
-    function pause() public virtual whenNotPaused {
+    function pause() public onlyOwner whenNotPaused {
         _pause();
     }
 
-    function unpause() public virtual whenPaused {
+    function unpause() public onlyOwner whenPaused {
         _unpause();
     }
 

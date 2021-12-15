@@ -61,11 +61,11 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         return super.isApprovedForAll(owner, operator);
     }
 
-    function pause() public virtual whenNotPaused {
+    function pause() public virtual onlyOwner whenNotPaused {
         _pause();
     }
 
-    function unpause() public virtual whenPaused {
+    function unpause() public virtual onlyOwner whenPaused {
         _unpause();
     }
 

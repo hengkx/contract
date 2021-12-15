@@ -8,9 +8,9 @@
     "deployNFT": "hardhat run ./scripts/deployNFT.ts",
     "mint": "hardhat run ./scripts/mint.ts",
     "trade": "hardhat run ./scripts/trade.ts",
-    "test": "hardhat --network ganache test",
+    "test": "hardhat --network ganache test test/local/*",
     "testOnline": "hardhat --network rinkeby test test/online",
-    "testLog": "hardhat --network hardhat test"
+    "testLog": "hardhat --network hardhat test test/local/*"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.0"
