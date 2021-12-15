@@ -40,7 +40,7 @@ contract Market {
         address payable seller;
         address payable owner;
         uint256 price;
-        uint256 amount;
+        uint256 quantity;
     }
 
     mapping(uint256 => MarketItem) private idToMarketItem;
@@ -52,7 +52,7 @@ contract Market {
         address seller,
         address owner,
         uint256 price,
-        uint256 amount
+        uint256 quantity
     );
 
     function getKey(address tokenAddress, uint256 tokenId)
@@ -72,6 +72,9 @@ contract Market {
     ) public onlyOwner(tokenAddress, tokenId, is1155) {
         require(price > 0, "Price must be greater than 0");
         if (is1155) {
+            ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
+            uint256 balance = nft.balanceOf(msg.sender, tokenId);
+            require(balance >= amount, "Invalid quantity");
             _itemIds.increment();
             uint256 itemId = _itemIds.current();
             idToMarketItem[itemId] = MarketItem(
@@ -137,13 +140,22 @@ contract Market {
         address tokenAddress,
         address owner,
         uint256 tokenId,
-        uint256 amount
+        uint256 money,
+        uint256 quantity
     ) public {
         Tradable nft = Tradable(tokenAddress);
-        uint256 fee = amount.mul(nft.getSellerFeeBasisPoints()).div(100);
-        uint256 receipts = amount.sub(fee);
-        if (nft.getFistAmount(owner, tokenId) > 0) {
+        // 版税
+        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+        // 实际分给卖家的钱
+        uint256 receipts = money.sub(fee);
+        // 第一次参与分成的数量（解决第一次销售多个owner问题）
+        uint256 firstAmount = nft.getFistAmount(owner, tokenId);
+        if (firstAmount >= quantity) {
             _settlement(nft.getSaleRecipients(), receipts);
+        } else if (firstAmount > 0) {
+            uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
+            _settlement(nft.getSaleRecipients(), firstReceipts);
+            payable(address(owner)).transfer(receipts.sub(firstReceipts));
         } else {
             payable(address(owner)).transfer(receipts);
         }
@@ -157,19 +169,37 @@ contract Market {
         address owner = nft.ownerOf(tokenId);
         require(_assetPrices[key] == msg.value, "Invalid price");
         require(owner != msg.sender, "It's already yours");
-        settlement(tokenAddress, owner, tokenId, msg.value);
+        settlement(tokenAddress, owner, tokenId, msg.value, 1);
         nft.safeTransferFrom(owner, msg.sender, tokenId);
         delete _assetPrices[key];
     }
 
-    function buy1155(uint256 itemId, uint256 amount) public payable {
+    function buy1155(uint256 itemId, uint256 quantity) public payable {
         MarketItem memory item = idToMarketItem[itemId];
         require(item.price > 0, "No sales");
+        require(item.price == msg.value.div(quantity), "Invalid price");
         ERC1155Tradable nft = ERC1155Tradable(item.nftContract);
         uint256 balance = nft.balanceOf(item.seller, item.tokenId);
-        require(balance >= amount, "Invliad amount");
-        settlement(item.nftContract, item.seller, item.tokenId, msg.value);
-        nft.safeTransferFrom(item.seller, msg.sender, item.tokenId, amount, "");
-        delete idToMarketItem[itemId];
+        require(balance >= quantity, "Invliad quantity");
+        require(item.quantity >= quantity, "Invliad sale quantity");
+        settlement(
+            item.nftContract,
+            item.seller,
+            item.tokenId,
+            msg.value,
+            quantity
+        );
+        nft.safeTransferFrom(
+            item.seller,
+            msg.sender,
+            item.tokenId,
+            quantity,
+            ""
+        );
+        if (idToMarketItem[itemId].quantity > quantity) {
+            idToMarketItem[itemId].quantity -= quantity;
+        } else {
+            delete idToMarketItem[itemId];
+        }
     }
 }

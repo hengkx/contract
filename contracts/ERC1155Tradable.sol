@@ -77,17 +77,22 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         bytes memory data
     ) internal override {
         super._safeTransferFrom(from, to, tokenId, amount, data);
-        _firstSales[tokenId][from] -= amount;
-        _tokenTransferCounts[tokenId] += 1;
+        if (_creators[tokenId] == from) {
+            if (_firstSales[tokenId][from] >= amount) {
+                _firstSales[tokenId][from] -= amount;
+            } else {
+                _firstSales[tokenId][from] = 0;
+            }
+        }
     }
 
     function getFistAmount(address owner, uint256 tokenId)
         public
-        pure
+        view
         override
         returns (uint256)
     {
-        // return _firstSales[tokenId][owner];
+        return _firstSales[tokenId][owner];
     }
 
     mapping(uint256 => uint256) public tokenSupply;
@@ -100,7 +105,7 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         address account,
         uint256 id,
         uint256 value
-    ) public virtual {
+    ) public {
         _burn(account, id, value);
         delete _creators[id];
     }
@@ -109,7 +114,7 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         address account,
         uint256[] memory ids,
         uint256[] memory values
-    ) public virtual {
+    ) public {
         _burnBatch(account, ids, values);
         for (uint256 i = 0; i < ids.length; i++) {
             delete _creators[ids[i]];

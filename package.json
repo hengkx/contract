@@ -4,12 +4,13 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "flatten": "hardhat flatten --output  a.sol",
-    "deploy": "hardhat run ./scripts/deploy.ts",
+    "deploy": "hardhat --network rinkeby run ./scripts/deploy.ts",
     "deployNFT": "hardhat run ./scripts/deployNFT.ts",
     "mint": "hardhat run ./scripts/mint.ts",
     "trade": "hardhat run ./scripts/trade.ts",
-    "test": "hardhat --network ganache test"
+    "test": "hardhat --network ganache test",
+    "testOnline": "hardhat --network rinkeby test test/online",
+    "testLog": "hardhat --network hardhat test"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.0"

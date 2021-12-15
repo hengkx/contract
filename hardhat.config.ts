@@ -5,14 +5,16 @@ import '@nomiclabs/hardhat-waffle';
 import { HardhatUserConfig } from 'hardhat/config';
 import dotenv from 'dotenv';
 
-const { PRIVATE_KEY, ETHERSCAN_KEY } = dotenv.config().parsed || {};
+const { PRIVATE_KEY, PRIVATE_KEY1, ETHERSCAN_KEY } =
+  dotenv.config().parsed || {};
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'rinkeby',
   networks: {
     rinkeby: {
-      url: 'https://rinkeby.infura.io/v3/276e28cb0bd44c2c86d881222183af10',
-      accounts: [PRIVATE_KEY],
+      url: 'https://rinkeby.infura.io/v3/868df5ff3ca64bdc8ae50772874a6682',
+      // url: 'https://eth-rinkeby.alchemyapi.io/v2/IZcjQxK29GvxCuSHPc2afnlCho-_a4n8',
+      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
     },
   },
   etherscan: {
@@ -26,6 +28,9 @@ const config: HardhatUserConfig = {
         runs: 200,
       },
     },
+  },
+  mocha: {
+    timeout: 2000000,
   },
 };
 

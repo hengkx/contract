@@ -20,7 +20,6 @@ abstract contract Tradable {
     string private _contractURI;
 
     mapping(uint256 => address) internal _creators;
-    mapping(uint256 => uint256) internal _tokenTransferCounts;
     mapping(uint256 => string) internal _tokenURIs;
 
     constructor(
@@ -63,10 +62,6 @@ abstract contract Tradable {
         return _sellerFeeBasisPoints;
     }
 
-    function getTracnsferCount(uint256 tokenId) public view returns (uint256) {
-        return _tokenTransferCounts[tokenId];
-    }
-
     function _setTokenURI(uint256 tokenId, string memory _tokenURI)
         internal
         virtual
@@ -74,61 +69,15 @@ abstract contract Tradable {
         _tokenURIs[tokenId] = _tokenURI;
     }
 
+    /**
+     * 获取第一次销售分成的数量
+     */
     function getFistAmount(address owner, uint256 tokenId)
         public
         view
         virtual
         returns (uint256)
     {}
-
-    // struct Settlement {
-    //     address payable account;
-    //     uint256 amount;
-    // }
-
-    // function _settlement(Recipient[] memory recipients, uint256 amount)
-    //     private
-    //     pure
-    //     returns (Settlement[] memory)
-    // {
-    //     uint256 paid = 0;
-    //     uint256 len = recipients.length;
-    //     Settlement[] memory settlements = new Settlement[](len);
-    //     for (uint256 i = 0; i < len - 1; i++) {
-    //         Recipient memory recipient = recipients[i];
-    //         uint256 currentFee = amount.mul(recipient.points).div(100);
-    //         // payable(address(recipient.recipient)).transfer(currentFee);
-    //         settlements[i] = Settlement(
-    //             payable(address(recipient.recipient)),
-    //             currentFee
-    //         );
-    //         paid += currentFee;
-    //     }
-    //     // payable(address(recipients[len - 1].recipient)).transfer(
-    //     //     amount.sub(paid)
-    //     // );
-    //     settlements[len - 1] = Settlement(
-    //         payable(address(recipients[len - 1].recipient)),
-    //         amount.sub(paid)
-    //     );
-    //     return settlements;
-    // }
-
-    // function settlement(
-    //     address owner,
-    //     uint256 tokenId,
-    //     uint256 amount
-    // ) public {
-    //     uint256 fee = amount.mul(getSellerFeeBasisPoints()).div(100);
-    //     uint256 receipts = amount.sub(fee);
-    //     // Settlement[] memory settlements = new Settlement[](len);
-    //     if (getFistAmount(owner, tokenId) > 0) {
-    //         _settlement(getSaleRecipients(), receipts);
-    //     } else {
-    //         payable(address(owner)).transfer(receipts);
-    //     }
-    //     _settlement(getFeeRecipients(), fee);
-    // }
 
     function contractURI() public view returns (string memory) {
         return _contractURI;

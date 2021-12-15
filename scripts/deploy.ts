@@ -8,7 +8,7 @@ async function main() {
   const market = await Market.deploy();
   // 0xCc9BE95169E21d6527B82d676C5Db98A707c994f
   console.log('Market deployed to:', market.address);
-  // await market.deployed();
+  await market.deployed();
   // await run('verify:verify', {
   //   address: market.address,
   // });

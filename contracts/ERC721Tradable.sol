@@ -9,6 +9,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
     using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIds;
+    mapping(uint256 => uint256) private _firstSales;
 
     constructor(
         address proxy,
@@ -52,6 +53,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         _mint(to, tokenId);
         _setTokenURI(tokenId, uri);
         _creators[tokenId] = to;
+        _firstSales[tokenId] = 1;
         return tokenId;
     }
 
@@ -91,7 +93,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         uint256 tokenId
     ) internal override {
         super._transfer(from, to, tokenId);
-        _tokenTransferCounts[tokenId] += 1;
+        _firstSales[tokenId] = 0;
     }
 
     function getFistAmount(address, uint256 tokenId)
@@ -100,10 +102,6 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         override
         returns (uint256)
     {
-        if (_tokenTransferCounts[tokenId] == 0) {
-            return 1;
-        } else {
-            return 0;
-        }
+        return _firstSales[tokenId];
     }
 }
