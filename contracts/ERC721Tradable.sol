@@ -25,7 +25,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
             feeRecipients,
             url
         )
-        ERC721("NFT", "hengkx")
+        ERC721("CultureVault", "CV")
     {}
 
     function tokenURI(uint256 tokenId)
@@ -50,7 +50,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
     {
         _tokenIds.increment();
         uint256 tokenId = _tokenIds.current();
-        _mint(to, tokenId);
+        _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
         _creators[tokenId] = to;
         _firstSales[tokenId] = 1;

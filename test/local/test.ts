@@ -53,15 +53,10 @@ describe('Contract', function () {
     const res = await (await nft.mint(account, url)).wait();
     const tokenId = res.events[0].args.tokenId;
     let price = utils.parseEther('1');
-    await market.createSellOrder(nft.address, tokenId, price, 1, false);
-    expect((await market.getPrice(nft.address, tokenId)).toString()).to.equal(
-      price.toString(),
-    );
-    await market
-      .connect(accounts[1])
-      .buy(nft.address, tokenId, { value: price });
+    await market.createSellOrder(nft.address, tokenId, price, 1, 721);
+    expect((await market.getPrice(1)).toString()).to.equal(price.toString());
+    await market.connect(accounts[1]).buy(1, 1, { value: price });
     expect(await nft.ownerOf(tokenId)).to.equal(await accounts[1].getAddress());
-    // console.log(await Promise.all(accounts.map((item) => item.getAddress())));
 
     let fee = price.mul(feePoints).div(100);
     expect(await provider.getBalance(feeRecipients[0][0])).to.equal(
@@ -76,40 +71,38 @@ describe('Contract', function () {
     price = price.mul(2);
     await market
       .connect(accounts[1])
-      .createSellOrder(nft.address, tokenId, price, 1, false);
+      .createSellOrder(nft.address, tokenId, price, 1, 721);
 
     let feeBalance = await provider.getBalance(feeRecipients[0][0]);
-    await market
-      .connect(accounts[2])
-      .buy(nft.address, tokenId, { value: price });
+    await market.connect(accounts[2]).buy(2, 1, { value: price });
     fee = price.mul(feePoints).div(100);
     expect(
       (await provider.getBalance(feeRecipients[0][0])).sub(feeBalance),
     ).to.equal(fee.mul(feeRecipients[0][1]).div(100));
   });
 
-  it('1155', async function () {
-    const account = await accounts[0].getAddress();
-    const address = nft1155.address;
-    let res = await (await nft1155.mint(account, 10, url)).wait();
-    const tokenId = res.events[0].args.id;
-    let price = utils.parseEther('1');
-    res = await (
-      await market.createSellOrder(address, tokenId, price, 1, true)
-    ).wait();
-    let orderId = res.events[0].args.itemId;
-    // expect((await market.getPrice(address, tokenId)).toString()).to.equal(
-    //   price.toString(),
-    // );
-    await market.connect(accounts[1]).buy1155(orderId, 1, { value: price });
-    // expect(await nft.ownerOf(tokenId)).to.equal(await accounts[1].getAddress());
-    res = await (
-      await market
-        .connect(accounts[1])
-        .createSellOrder(address, tokenId, price, 1, true)
-    ).wait();
-    orderId = res.events[0].args.itemId;
-    console.log(orderId);
-    await market.connect(accounts[2]).buy1155(orderId, 1, { value: price });
-  });
+  // it('1155', async function () {
+  //   const account = await accounts[0].getAddress();
+  //   const address = nft1155.address;
+  //   let res = await (await nft1155.mint(account, 10, url)).wait();
+  //   const tokenId = res.events[0].args.id;
+  //   let price = utils.parseEther('1');
+  //   res = await (
+  //     await market.createSellOrder(address, tokenId, price, 1, 1155)
+  //   ).wait();
+  //   let orderId = res.events[0].args.itemId;
+  //   // expect((await market.getPrice(address, tokenId)).toString()).to.equal(
+  //   //   price.toString(),
+  //   // );
+  //   await market.connect(accounts[1]).buy(orderId, 1, { value: price });
+  //   // expect(await nft.ownerOf(tokenId)).to.equal(await accounts[1].getAddress());
+  //   res = await (
+  //     await market
+  //       .connect(accounts[1])
+  //       .createSellOrder(address, tokenId, price, 1, 1155)
+  //   ).wait();
+  //   orderId = res.events[0].args.itemId;
+  //   console.log(orderId);
+  //   await market.connect(accounts[2]).buy(orderId, 1, { value: price });
+  // });
 });

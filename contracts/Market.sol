@@ -14,9 +14,9 @@ contract Market {
     modifier onlyOwner(
         address tokenAddress,
         uint256 tokenId,
-        bool is1155
+        uint256 erc
     ) {
-        if (is1155) {
+        if (erc == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
 
             require(
@@ -33,27 +33,51 @@ contract Market {
         _;
     }
 
+    modifier onlyOrderOwner(uint256 orderId) {
+        MarketItem memory item = idToMarketItem[orderId];
+        uint256 tokenId = item.tokenId;
+        if (item.erc == 1155) {
+            ERC1155Tradable nft = ERC1155Tradable(item.tokenAddress);
+
+            require(
+                nft.balanceOf(msg.sender, tokenId) > 0,
+                "Ownable: caller is not the owner"
+            );
+        } else {
+            ERC721Tradable nft = ERC721Tradable(item.tokenAddress);
+            require(
+                nft.ownerOf(tokenId) == msg.sender,
+                "Ownable: caller is not the owner"
+            );
+        }
+        _;
+    }
+
     struct MarketItem {
-        uint256 itemId;
-        address nftContract;
+        uint256 orderId;
+        address tokenAddress;
         uint256 tokenId;
         address payable seller;
-        address payable owner;
         uint256 price;
-        uint256 quantity;
+        uint256 amount;
+        uint256 erc;
     }
 
     mapping(uint256 => MarketItem) private idToMarketItem;
 
-    event Created(
-        uint256 indexed itemId,
-        address indexed nftContract,
+    event Sale(
+        uint256 indexed orderId,
+        address indexed tokenAddress,
         uint256 indexed tokenId,
         address seller,
-        address owner,
         uint256 price,
-        uint256 quantity
+        uint256 amount,
+        uint256 erc
     );
+
+    event CancelSale(uint256 indexed orderId);
+
+    event Buy(uint256 indexed orderId, uint256 amount);
 
     function getKey(address tokenAddress, uint256 tokenId)
         internal
@@ -68,71 +92,68 @@ contract Market {
         uint256 tokenId,
         uint256 price,
         uint256 amount,
-        bool is1155
-    ) public onlyOwner(tokenAddress, tokenId, is1155) {
+        uint256 erc
+    ) public onlyOwner(tokenAddress, tokenId, erc) {
         require(price > 0, "Price must be greater than 0");
-        if (is1155) {
+
+        if (erc == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
             uint256 balance = nft.balanceOf(msg.sender, tokenId);
             require(balance >= amount, "Invalid quantity");
-            _itemIds.increment();
-            uint256 itemId = _itemIds.current();
-            idToMarketItem[itemId] = MarketItem(
-                itemId,
-                tokenAddress,
-                tokenId,
-                payable(msg.sender),
-                payable(address(0)),
-                price,
-                amount
-            );
-            emit Created(
-                itemId,
-                tokenAddress,
-                tokenId,
-                msg.sender,
-                address(0),
-                price,
-                amount
-            );
         } else {
             bytes memory key = getKey(tokenAddress, tokenId);
             require(_assetPrices[key] == 0, "Price has been set");
             _assetPrices[key] = price;
         }
+        _itemIds.increment();
+        uint256 orderId = _itemIds.current();
+        idToMarketItem[orderId] = MarketItem(
+            orderId,
+            tokenAddress,
+            tokenId,
+            payable(msg.sender),
+            price,
+            amount,
+            erc
+        );
+        emit Sale(
+            orderId,
+            tokenAddress,
+            tokenId,
+            msg.sender,
+            price,
+            amount,
+            erc
+        );
     }
 
-    function cancelOrder(
-        address tokenAddress,
-        uint256 tokenId,
-        bool is1155
-    ) public onlyOwner(tokenAddress, tokenId, is1155) {
-        bytes memory key = getKey(tokenAddress, tokenId);
-        delete _assetPrices[key];
+    function cancelOrder(uint256 orderId) public onlyOrderOwner(orderId) {
+        MarketItem memory item = idToMarketItem[orderId];
+        if (item.erc == 721) {
+            bytes memory key = getKey(item.tokenAddress, item.tokenId);
+            delete _assetPrices[key];
+        }
+        delete idToMarketItem[orderId];
+        emit CancelSale(orderId);
     }
 
-    function getPrice(address tokenAddress, uint256 tokenId)
-        public
-        view
-        returns (uint256)
-    {
-        bytes memory key = getKey(tokenAddress, tokenId);
-        return _assetPrices[key];
+    function getPrice(uint256 orderId) public view returns (uint256) {
+        return idToMarketItem[orderId].price;
     }
 
-    function _settlement(Tradable.Recipient[] memory recipients, uint256 amount)
+    function _settlement(Tradable.Recipient[] memory recipients, uint256 money)
         private
     {
         uint256 paid = 0;
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len - 1; i++) {
             Tradable.Recipient memory recipient = recipients[i];
-            uint256 currentFee = amount.mul(recipient.points).div(100);
+            uint256 currentFee = money.mul(recipient.points).div(100);
             payable(address(recipient.recipient)).transfer(currentFee);
             paid += currentFee;
         }
         payable(address(recipients[len - 1].recipient)).transfer(
-            amount.sub(paid)
+            money.sub(paid)
         );
     }
 
@@ -162,44 +183,41 @@ contract Market {
         _settlement(nft.getFeeRecipients(), fee);
     }
 
-    function buy(address tokenAddress, uint256 tokenId) public payable {
-        ERC721Tradable nft = ERC721Tradable(tokenAddress);
-        bytes memory key = getKey(tokenAddress, tokenId);
-        require(_assetPrices[key] > 0, "No sales");
-        address owner = nft.ownerOf(tokenId);
-        require(_assetPrices[key] == msg.value, "Invalid price");
-        require(owner != msg.sender, "It's already yours");
-        settlement(tokenAddress, owner, tokenId, msg.value, 1);
-        nft.safeTransferFrom(owner, msg.sender, tokenId);
-        delete _assetPrices[key];
-    }
-
-    function buy1155(uint256 itemId, uint256 quantity) public payable {
-        MarketItem memory item = idToMarketItem[itemId];
-        require(item.price > 0, "No sales");
-        require(item.price == msg.value.div(quantity), "Invalid price");
-        ERC1155Tradable nft = ERC1155Tradable(item.nftContract);
-        uint256 balance = nft.balanceOf(item.seller, item.tokenId);
-        require(balance >= quantity, "Invliad quantity");
-        require(item.quantity >= quantity, "Invliad sale quantity");
-        settlement(
-            item.nftContract,
-            item.seller,
-            item.tokenId,
-            msg.value,
-            quantity
-        );
-        nft.safeTransferFrom(
-            item.seller,
-            msg.sender,
-            item.tokenId,
-            quantity,
-            ""
-        );
-        if (idToMarketItem[itemId].quantity > quantity) {
-            idToMarketItem[itemId].quantity -= quantity;
+    function buy(uint256 orderId, uint256 quantity) public payable {
+        MarketItem memory item = idToMarketItem[orderId];
+        uint256 price = item.price;
+        require(price > 0, "No sales");
+        require(price == msg.value.div(quantity), "Invalid price");
+        address tokenAddress = item.tokenAddress;
+        uint256 tokenId = item.tokenId;
+        if (item.erc == 721) {
+            ERC721Tradable nft = ERC721Tradable(tokenAddress);
+            address owner = nft.ownerOf(tokenId);
+            require(owner != msg.sender, "It's already yours");
+            settlement(tokenAddress, owner, tokenId, msg.value, 1);
+            nft.safeTransferFrom(owner, msg.sender, tokenId);
+            bytes memory key = getKey(tokenAddress, tokenId);
+            delete _assetPrices[key];
         } else {
-            delete idToMarketItem[itemId];
+            ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
+            uint256 balance = nft.balanceOf(item.seller, item.tokenId);
+            require(balance >= quantity, "Invliad quantity");
+            require(item.amount >= quantity, "Invliad sale quantity");
+            settlement(tokenAddress, item.seller, tokenId, msg.value, quantity);
+            nft.safeTransferFrom(
+                item.seller,
+                msg.sender,
+                tokenId,
+                quantity,
+                ""
+            );
         }
+
+        if (idToMarketItem[orderId].amount > quantity) {
+            idToMarketItem[orderId].amount -= quantity;
+        } else {
+            delete idToMarketItem[orderId];
+        }
+        emit Buy(orderId, quantity);
     }
 }

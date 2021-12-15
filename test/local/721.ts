@@ -23,7 +23,6 @@ describe('ERC721Tradable', function () {
   let accounts: Signer[];
   let market: Contract;
   let nft: Contract;
-  let nft1155: Contract;
 
   beforeEach(async function () {
     accounts = await ethers.getSigners();
