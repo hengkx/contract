@@ -46,4 +46,43 @@ describe('ERC721Tradable', function () {
     await expect(nft.connect(accounts[1]).pause()).to.reverted;
     expect(await nft.paused()).to.false;
   });
+
+  it('721', async function () {
+    const account = await accounts[0].getAddress();
+    let res = await (await nft.mint(account, url)).wait();
+    const tokenId = res.events[0].args.tokenId;
+    let price = utils.parseEther('1');
+    res = await market
+      .connect(accounts[0])
+      .createSellOrder(nft.address, tokenId, price, 1, 721);
+    res = await res.wait();
+    let orderId = res.events[0].args.orderId;
+    console.log('初次销售设置价格完成');
+    res = await market.connect(accounts[1]).buy(orderId, 1, { value: price });
+    await res.wait();
+    console.log('初次购买完成');
+    price = utils.parseEther('2');
+    res = await market
+      .connect(accounts[1])
+      .createSellOrder(nft.address, tokenId, price, 1, 721);
+    res = await res.wait();
+    orderId = res.events[0].args.orderId;
+    console.log('二次销售设置价格完成');
+
+    res = await market.connect(accounts[0]).buy(orderId, 1, { value: price });
+    await res.wait();
+    console.log('二次购买完成');
+
+    price = utils.parseEther('1');
+    res = await market
+      .connect(accounts[0])
+      .createSellOrder(nft.address, tokenId, price, 1, 721);
+    res = await res.wait();
+    orderId = res.events[0].args.orderId;
+    console.log('三次销售设置价格');
+
+    res = await market.connect(accounts[1]).buy(orderId, 1, { value: price });
+    await res.wait();
+    console.log('三次购买完成');
+  });
 });

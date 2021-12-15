@@ -76,8 +76,7 @@ abstract contract Tradable {
         public
         view
         virtual
-        returns (uint256)
-    {}
+        returns (uint256);
 
     function contractURI() public view returns (string memory) {
         return _contractURI;
