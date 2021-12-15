@@ -88,12 +88,12 @@ describe('online', function () {
   it('1155', async function () {
     let price = utils.parseEther('1');
     let tokenId = 1;
-    // let res = await market
-    //   .connect(accounts[0])
-    //   .createSellOrder(nft1155.address, tokenId, price, 6, true);
-    // await res.wait();
-    // console.log('初次销售设置价格完成');
     let res = await market
+      .connect(accounts[0])
+      .createSellOrder(nft1155.address, tokenId, price, 6, true);
+    await res.wait();
+    console.log('初次销售设置价格完成');
+    res = await market
       .connect(accounts[1])
       .buy1155(1, 3, { value: price.mul(3) });
     await res.wait();
