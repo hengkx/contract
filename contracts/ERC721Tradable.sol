@@ -45,7 +45,8 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         uint256 tokenId,
         address to,
         string memory uri
-    ) public whenNotPaused returns (uint256) {
+    ) public onlyOwner whenNotPaused returns (uint256) {
+        require(!_exists(tokenId), "token already exists");
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
         _creators[tokenId] = to;

@@ -38,7 +38,7 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         address to,
         uint256 amount,
         string memory url
-    ) public whenNotPaused returns (uint256) {
+    ) public whenNotPaused onlyOwner returns (uint256) {
         _mint(to, tokenId, amount, "");
         _setTokenURI(tokenId, url);
         _creators[tokenId] = to;
