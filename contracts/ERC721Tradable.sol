@@ -6,9 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
 
 contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
-    using Counters for Counters.Counter;
     using Strings for uint256;
-    Counters.Counter private _tokenIds;
     mapping(uint256 => uint256) private _firstSales;
 
     constructor(
@@ -43,13 +41,11 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         return _tokenURI;
     }
 
-    function mint(address to, string memory uri)
-        public
-        whenNotPaused
-        returns (uint256)
-    {
-        _tokenIds.increment();
-        uint256 tokenId = _tokenIds.current();
+    function mint(
+        uint256 tokenId,
+        address to,
+        string memory uri
+    ) public whenNotPaused returns (uint256) {
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
         _creators[tokenId] = to;

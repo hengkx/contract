@@ -49,7 +49,7 @@ describe('ERC721Tradable', function () {
 
   it('721', async function () {
     const account = await accounts[0].getAddress();
-    let res = await (await nft.mint(account, url)).wait();
+    let res = await (await nft.mint(1, account, url)).wait();
     const tokenId = res.events[0].args.tokenId;
     let price = utils.parseEther('1');
     res = await market
