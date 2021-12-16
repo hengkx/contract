@@ -29,6 +29,14 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         ERC1155("")
     {}
 
+    function name() public pure returns (string memory) {
+        return "CultureVault";
+    }
+
+    function symbol() public pure returns (string memory) {
+        return "CV";
+    }
+
     function uri(uint256 tokenId) public view override returns (string memory) {
         return _tokenURIs[tokenId];
     }

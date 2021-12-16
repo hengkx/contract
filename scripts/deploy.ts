@@ -54,8 +54,8 @@ async function main() {
   //   ],
   // });
 
-  await nft.mint('0x9454c9090074e7377ed6f8645708Dd529B3b0C15', url);
-  await nft1155.mint('0x9454c9090074e7377ed6f8645708Dd529B3b0C15', 10, url);
+  await nft.mint(1, '0x9454c9090074e7377ed6f8645708Dd529B3b0C15', url);
+  await nft1155.mint(1, '0x9454c9090074e7377ed6f8645708Dd529B3b0C15', 10, url);
 }
 
 main()
