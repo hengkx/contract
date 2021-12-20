@@ -50,6 +50,10 @@ abstract contract Tradable {
         _contractURI = url;
     }
 
+    function getProxyAddress() public view returns (address) {
+        return _proxyAddress;
+    }
+
     function getSaleRecipients() public view returns (Recipient[] memory) {
         return _saleRecipients;
     }
