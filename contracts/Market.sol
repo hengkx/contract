@@ -77,7 +77,7 @@ contract Market {
 
     event CancelSale(uint256 indexed orderId);
 
-    event Buy(uint256 indexed orderId, uint256 amount);
+    event Buy(uint256 indexed orderId, address indexed buyer, uint256 amount);
 
     function getKey(address tokenAddress, uint256 tokenId)
         internal
@@ -218,6 +218,6 @@ contract Market {
         } else {
             delete idToMarketItem[orderId];
         }
-        emit Buy(orderId, quantity);
+        emit Buy(orderId, msg.sender, quantity);
     }
 }
