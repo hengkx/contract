@@ -186,6 +186,7 @@ contract Market {
     function buy(uint256 orderId, uint256 quantity) public payable {
         MarketItem memory item = idToMarketItem[orderId];
         uint256 price = item.price;
+        require(item.seller != msg.sender, "You can't buy it yourself");
         require(price > 0, "No sales");
         require(price == msg.value.div(quantity), "Invalid price");
         address tokenAddress = item.tokenAddress;
