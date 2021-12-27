@@ -15,36 +15,38 @@ describe('Market', function () {
   });
 
   it('test', async function () {
+    const address = await accounts[0].getAddress();
     const order = [
       '0x9454c9090074e7377ed6f8645708Dd529B3b0C15',
       1,
       721,
-      '0x9454c9090074e7377ed6f8645708Dd529B3b0C15',
+      address,
       utils.parseEther('1'),
       1,
-      Date.now(),
-      Date.now(),
-      Math.round(Math.random() * 10000000000),
+      1640224858,
+      1640224858,
+      1640224858,
     ];
-    // const abi = new utils.AbiCoder();
-    // const hash = utils.keccak256(
-    //   abi.encode(
-    //     [
-    //       'string',
-    //       'uint256',
-    //       'uint256',
-    //       'string',
-    //       'uint256',
-    //       'uint256',
-    //       'uint256',
-    //       'uint256',
-    //       'uint256',
-    //     ],
-    //     order,
-    //   ),
-    // );
-    // console.log(accounts[0].signMessage(hash));
-    // console.log(await market.validateOrder(order, ''));
-    // accounts[0].signMessage()
+    const abi = new utils.AbiCoder();
+    const hash = utils.keccak256(
+      abi.encode(
+        [
+          'address',
+          'uint256',
+          'uint256',
+          'address',
+          'uint256',
+          'uint256',
+          'uint256',
+          'uint256',
+          'uint256',
+        ],
+        order,
+      ),
+    );
+    const sig = await accounts[0].signMessage(hash);
+    const sigLike = utils.splitSignature(sig);
+    const s = [sigLike.v, sigLike.r, sigLike.s];
+    expect(await market.validateOrder(order, s)).to.be.true;
   });
 });

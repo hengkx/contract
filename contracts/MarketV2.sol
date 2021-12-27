@@ -59,28 +59,31 @@ contract MarketV2 {
             )
         );
         return hash;
+        // return uint256(hash).toHexString();
     }
 
-    function validateOrder(Order memory order, bytes memory signature)
+    struct Sig {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
+    function validateOrder(Order memory order, Sig memory sig)
         public
         pure
         returns (bool)
     {
-        (uint8 v, bytes32 r, bytes32 s) = abi.decode(
-            signature,
-            (uint8, bytes32, bytes32)
-        );
         bytes32 hash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n66",
                 uint256(hashToSign(order)).toHexString()
             )
         );
-        return ecrecover(hash, v, r, s) == order.maker;
+        return ecrecover(hash, sig.v, sig.r, sig.s) == order.maker;
     }
 
-    function cancelOrder(Order memory order, bytes memory signature) external {
-        require(validateOrder(order, signature), "Invalid order");
+    function cancelOrder(Order memory order, Sig memory sig) external {
+        require(validateOrder(order, sig), "Invalid order");
         require(order.maker == msg.sender, "Not owner");
         _cancelOrders[hashToSign(order)] = true;
     }
@@ -106,12 +109,12 @@ contract MarketV2 {
 
     function trade(
         Order memory order,
-        bytes memory signature,
+        Sig memory sig,
         uint256 amount
     ) public payable {
         bytes32 hash = hashToSign(order);
         require(isApproved(order), "Not approved");
-        require(validateOrder(order, signature), "Invalid order");
+        require(validateOrder(order, sig), "Invalid order");
         require(order.price == msg.value.div(amount), "Invalid price");
         require(!_cancelOrders[hash], "Order already canceled.");
         require(

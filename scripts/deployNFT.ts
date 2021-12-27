@@ -3,7 +3,7 @@ import { ethers } from 'hardhat';
 async function main() {
   // const NFT = await ethers.getContractFactory('ERC721Tradable');
   // const nft = await NFT.deploy('0x8D380b83956E50686EC7cE80359b93f235d0Dbd4');
-  const NFT = await ethers.getContractFactory('Test1155');
+  const NFT = await ethers.getContractFactory('MarketV2');
   const nft = await NFT.deploy();
   // const NFT = await ethers.getContractFactory('Factory');
   // const nft = await NFT.deploy();
