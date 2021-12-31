@@ -5,11 +5,11 @@ import "./ERC1155Tradable.sol";
 
 contract Factory {
     event Created(address indexed tokenAddress, uint256 indexed tokenStandard);
+
     event Mint(
         address indexed tokenAddress,
         uint256 indexed tokenStandard,
         address indexed to,
-        string uri,
         uint256 amount
     );
 
@@ -62,12 +62,6 @@ contract Factory {
             ERC1155Tradable tradable = ERC1155Tradable(tokenAddress);
             tradable.mint(to, amount, uri);
         }
-        emit Mint(
-            tokenAddress,
-            _tokenMapStandards[tokenAddress],
-            to,
-            uri,
-            amount
-        );
+        emit Mint(tokenAddress, _tokenMapStandards[tokenAddress], to, amount);
     }
 }

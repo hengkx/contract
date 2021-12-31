@@ -23,14 +23,19 @@ describe('ERC721Tradable', function () {
   let accounts: Signer[];
   let market: Contract;
   let nft: Contract;
+  let proxy: Contract;
 
   beforeEach(async function () {
     accounts = await ethers.getSigners();
     const Market = await ethers.getContractFactory('Market');
     market = await Market.deploy();
+    const Proxy = await ethers.getContractFactory('ProxyRegistry');
+    proxy = await Proxy.deploy();
+    await proxy.addProxyAddress(market.address);
+    // await proxy.addProxyAddress(await accounts[1].getAddress());
     const NFT = await ethers.getContractFactory('ERC721Tradable');
     nft = await NFT.deploy(
-      market.address,
+      proxy.address,
       saleRecipients,
       feePoints,
       feeRecipients,
@@ -49,7 +54,7 @@ describe('ERC721Tradable', function () {
 
   it('721', async function () {
     const account = await accounts[0].getAddress();
-    let res = await (await nft.mint(1, account, url)).wait();
+    let res = await (await nft.mint(account, url)).wait();
     const tokenId = res.events[0].args.tokenId;
     let price = utils.parseEther('1');
     res = await market

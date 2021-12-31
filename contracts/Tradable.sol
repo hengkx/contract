@@ -4,21 +4,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "./ProxyRegistry.sol";
 
-contract OwnableDelegateProxy {}
-
-contract ProxyRegistry {
-    mapping(address => OwnableDelegateProxy) public proxies;
-}
-
-// function _isOwnerOrProxy(
-//     address _address
-//   ) internal view returns (bool) {
-//     ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
-//     return owner() == _address || address(proxyRegistry.proxies(owner())) == _address;
-//   }
-
-abstract contract Tradable {
+abstract contract Tradable is Ownable {
     using SafeMath for uint256;
 
     struct Recipient {
@@ -61,6 +49,18 @@ abstract contract Tradable {
         }
         require(allFeePoints == 100, "The sum of fee shares must be 100");
         _contractURI = url;
+    }
+
+    /**
+     * @dev Throws if called by any account other than the owner or their proxy
+     */
+    modifier onlyOwnerOrProxy() {
+        ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
+        require(
+            owner() == _msgSender() || proxyRegistry.proxies(_msgSender()),
+            "Tradable#onlyOwner: CALLER_IS_NOT_OWNER"
+        );
+        _;
     }
 
     function getProxyAddress() public view returns (address) {

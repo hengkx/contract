@@ -4,8 +4,9 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
+import "./ProxyRegistry.sol";
 
-contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
+contract ERC1155Tradable is Tradable, ERC1155Pausable {
     using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIds;
@@ -62,18 +63,19 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         override
         returns (bool)
     {
-        if (_proxyAddress == operator) {
+        ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
+        if (proxyRegistry.proxies(operator)) {
             return true;
         }
 
         return super.isApprovedForAll(owner, operator);
     }
 
-    function pause() public virtual onlyOwner whenNotPaused {
+    function pause() public virtual onlyOwnerOrProxy whenNotPaused {
         _pause();
     }
 
-    function unpause() public virtual onlyOwner whenPaused {
+    function unpause() public virtual onlyOwnerOrProxy whenPaused {
         _unpause();
     }
 

@@ -4,8 +4,9 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
+import "./ProxyRegistry.sol";
 
-contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
+contract ERC721Tradable is Tradable, ERC721Pausable {
     using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIds;
@@ -64,7 +65,8 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         override
         returns (bool)
     {
-        if (_proxyAddress == operator) {
+        ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
+        if (proxyRegistry.proxies(operator)) {
             return true;
         }
 
@@ -80,11 +82,11 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         delete _creators[tokenId];
     }
 
-    function pause() public onlyOwner whenNotPaused {
+    function pause() public onlyOwnerOrProxy whenNotPaused {
         _pause();
     }
 
-    function unpause() public onlyOwner whenPaused {
+    function unpause() public onlyOwnerOrProxy whenPaused {
         _unpause();
     }
 
