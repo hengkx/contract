@@ -5,6 +5,19 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+contract OwnableDelegateProxy {}
+
+contract ProxyRegistry {
+    mapping(address => OwnableDelegateProxy) public proxies;
+}
+
+// function _isOwnerOrProxy(
+//     address _address
+//   ) internal view returns (bool) {
+//     ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
+//     return owner() == _address || address(proxyRegistry.proxies(owner())) == _address;
+//   }
+
 abstract contract Tradable {
     using SafeMath for uint256;
 

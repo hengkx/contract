@@ -4,7 +4,16 @@ import "./ERC721Tradable.sol";
 import "./ERC1155Tradable.sol";
 
 contract Factory {
-    event Created(address indexed tradable, uint256 erc);
+    event Created(address indexed tokenAddress, uint256 indexed tokenStandard);
+    event Mint(
+        address indexed tokenAddress,
+        uint256 indexed tokenStandard,
+        address indexed to,
+        string uri,
+        uint256 amount
+    );
+
+    mapping(address => uint256) private _tokenMapStandards;
 
     function deploy(
         address proxy,
@@ -12,10 +21,10 @@ contract Factory {
         uint256 sellerFeeBasisPoints,
         Tradable.Recipient[] memory feeRecipients,
         string memory url,
-        uint256 erc
+        uint256 tokenStandard
     ) public {
         address tradable;
-        if (erc == 721) {
+        if (tokenStandard == 721) {
             tradable = address(
                 new ERC721Tradable(
                     proxy,
@@ -36,6 +45,29 @@ contract Factory {
                 )
             );
         }
-        emit Created(address(tradable), erc);
+        _tokenMapStandards[tradable] = tokenStandard;
+        emit Created(address(tradable), tokenStandard);
+    }
+
+    function mint(
+        address tokenAddress,
+        address to,
+        string memory uri,
+        uint256 amount
+    ) public {
+        if (_tokenMapStandards[tokenAddress] == 721) {
+            ERC721Tradable tradable = ERC721Tradable(tokenAddress);
+            tradable.mint(to, uri);
+        } else {
+            ERC1155Tradable tradable = ERC1155Tradable(tokenAddress);
+            tradable.mint(to, amount, uri);
+        }
+        emit Mint(
+            tokenAddress,
+            _tokenMapStandards[tokenAddress],
+            to,
+            uri,
+            amount
+        );
     }
 }
