@@ -59,7 +59,7 @@ describe('ERC721Tradable', function () {
     let price = utils.parseEther('1');
     res = await market
       .connect(accounts[0])
-      .createSellOrder(nft.address, tokenId, price, 1, 721);
+      .createSellOrder(nft.address, tokenId, price, 1);
     res = await res.wait();
     let orderId = res.events[0].args.orderId;
     console.log('初次销售设置价格完成');
@@ -69,7 +69,7 @@ describe('ERC721Tradable', function () {
     price = utils.parseEther('2');
     res = await market
       .connect(accounts[1])
-      .createSellOrder(nft.address, tokenId, price, 1, 721);
+      .createSellOrder(nft.address, tokenId, price, 1);
     res = await res.wait();
     orderId = res.events[0].args.orderId;
     console.log('二次销售设置价格完成');
@@ -81,7 +81,7 @@ describe('ERC721Tradable', function () {
     price = utils.parseEther('1');
     res = await market
       .connect(accounts[0])
-      .createSellOrder(nft.address, tokenId, price, 1, 721);
+      .createSellOrder(nft.address, tokenId, price, 1);
     res = await res.wait();
     orderId = res.events[0].args.orderId;
     console.log('三次销售设置价格');

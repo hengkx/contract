@@ -11,12 +11,8 @@ contract Market {
     mapping(bytes => uint256) private _assetPrices;
     Counters.Counter private _itemIds;
 
-    modifier onlyOwner(
-        address tokenAddress,
-        uint256 tokenId,
-        uint256 erc
-    ) {
-        if (erc == 1155) {
+    modifier onlyOwner(address tokenAddress, uint256 tokenId) {
+        if (getERCStandard(tokenAddress) == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
 
             require(
@@ -35,21 +31,7 @@ contract Market {
 
     modifier onlyOrderOwner(uint256 orderId) {
         MarketItem memory item = idToMarketItem[orderId];
-        uint256 tokenId = item.tokenId;
-        if (item.erc == 1155) {
-            ERC1155Tradable nft = ERC1155Tradable(item.tokenAddress);
-
-            require(
-                nft.balanceOf(msg.sender, tokenId) > 0,
-                "Ownable: caller is not the owner"
-            );
-        } else {
-            ERC721Tradable nft = ERC721Tradable(item.tokenAddress);
-            require(
-                nft.ownerOf(tokenId) == msg.sender,
-                "Ownable: caller is not the owner"
-            );
-        }
+        require(item.seller == msg.sender, "Ownable: caller is not the owner");
         _;
     }
 
@@ -60,7 +42,6 @@ contract Market {
         address payable seller;
         uint256 price;
         uint256 amount;
-        uint256 erc;
     }
 
     mapping(uint256 => MarketItem) private idToMarketItem;
@@ -71,8 +52,7 @@ contract Market {
         uint256 indexed tokenId,
         address seller,
         uint256 price,
-        uint256 amount,
-        uint256 erc
+        uint256 amount
     );
 
     event CancelSale(uint256 indexed orderId);
@@ -87,16 +67,28 @@ contract Market {
         return abi.encodePacked(tokenAddress, tokenId);
     }
 
+    function getERCStandard(address tokenAddress)
+        public
+        view
+        returns (uint256)
+    {
+        if (IERC721(tokenAddress).supportsInterface(0x80ac58cd)) {
+            return 721;
+        } else if (IERC1155(tokenAddress).supportsInterface(0xd9b67a26)) {
+            return 1155;
+        }
+        return 0;
+    }
+
     function createSellOrder(
         address tokenAddress,
         uint256 tokenId,
         uint256 price,
-        uint256 amount,
-        uint256 erc
-    ) public onlyOwner(tokenAddress, tokenId, erc) {
+        uint256 amount
+    ) public onlyOwner(tokenAddress, tokenId) {
         require(price > 0, "Price must be greater than 0");
 
-        if (erc == 1155) {
+        if (getERCStandard(tokenAddress) == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
             uint256 balance = nft.balanceOf(msg.sender, tokenId);
             require(balance >= amount, "Invalid quantity");
@@ -113,26 +105,15 @@ contract Market {
             tokenId,
             payable(msg.sender),
             price,
-            amount,
-            erc
+            amount
         );
-        emit Sale(
-            orderId,
-            tokenAddress,
-            tokenId,
-            msg.sender,
-            price,
-            amount,
-            erc
-        );
+        emit Sale(orderId, tokenAddress, tokenId, msg.sender, price, amount);
     }
 
     function cancelOrder(uint256 orderId) public onlyOrderOwner(orderId) {
         MarketItem memory item = idToMarketItem[orderId];
-        if (item.erc == 721) {
-            bytes memory key = getKey(item.tokenAddress, item.tokenId);
-            delete _assetPrices[key];
-        }
+        bytes memory key = getKey(item.tokenAddress, item.tokenId);
+        delete _assetPrices[key];
         delete idToMarketItem[orderId];
         emit CancelSale(orderId);
     }
@@ -191,7 +172,7 @@ contract Market {
         require(price == msg.value.div(quantity), "Invalid price");
         address tokenAddress = item.tokenAddress;
         uint256 tokenId = item.tokenId;
-        if (item.erc == 721) {
+        if (getERCStandard(tokenAddress) == 721) {
             ERC721Tradable nft = ERC721Tradable(tokenAddress);
             address owner = nft.ownerOf(tokenId);
             require(owner != msg.sender, "It's already yours");
