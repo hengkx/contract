@@ -7,8 +7,10 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-contract MarketV2 {
+contract MarketV2 is EIP712 {
     using SafeMath for uint256;
     using Strings for uint256;
 
@@ -33,8 +35,15 @@ contract MarketV2 {
         uint256 salt;
     }
 
+    bytes32 constant ORDER_TYPE_HASH =
+        keccak256(
+            "Order(address tokenAddress,uint256 tokenId,uint256 tokenType,address maker,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt)"
+        );
+
     mapping(bytes32 => bool) _cancelOrders;
     mapping(bytes32 => uint256) _tradedAmounts;
+
+    constructor() EIP712("Tom Xu", "1.0.0") {}
 
     function name() public pure returns (string memory) {
         return "Tom Xu";
@@ -44,48 +53,46 @@ contract MarketV2 {
         return "hengkx";
     }
 
-    function hashToSign(Order memory order) public pure returns (bytes32) {
-        bytes32 hash = keccak256(
-            abi.encode(
-                order.tokenAddress,
-                order.tokenId,
-                order.tokenType,
-                order.maker,
-                order.price,
-                order.amount,
-                order.listingTime,
-                order.expirationTime,
-                order.salt
-            )
-        );
-        return hash;
-        // return uint256(hash).toHexString();
+    function hashOrder(Order memory order) public pure returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    ORDER_TYPE_HASH,
+                    order.tokenAddress,
+                    order.tokenId,
+                    order.tokenType,
+                    order.maker,
+                    order.price,
+                    order.amount,
+                    order.listingTime,
+                    order.expirationTime,
+                    order.salt
+                )
+            );
     }
 
-    struct Sig {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+    function getDigest(Order memory order) public view returns (bytes32) {
+        return _hashTypedDataV4(hashOrder(order));
     }
 
-    function validateOrder(Order memory order, Sig memory sig)
+    function validateOrder(Order memory order, bytes memory signature)
         public
-        pure
+        view
         returns (bool)
     {
         bytes32 hash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n66",
-                uint256(hashToSign(order)).toHexString()
+                uint256(getDigest(order)).toHexString()
             )
         );
-        return ecrecover(hash, sig.v, sig.r, sig.s) == order.maker;
+        return ECDSA.recover(hash, signature) == order.maker;
     }
 
-    function cancelOrder(Order memory order, Sig memory sig) external {
-        require(validateOrder(order, sig), "Invalid order");
+    function cancelOrder(Order memory order, bytes memory signature) external {
+        require(validateOrder(order, signature), "Invalid order");
         require(order.maker == msg.sender, "Not owner");
-        _cancelOrders[hashToSign(order)] = true;
+        _cancelOrders[hashOrder(order)] = true;
     }
 
     function isApproved(Order memory order) public view returns (bool) {
@@ -109,12 +116,12 @@ contract MarketV2 {
 
     function trade(
         Order memory order,
-        Sig memory sig,
+        bytes memory signature,
         uint256 amount
     ) public payable {
-        bytes32 hash = hashToSign(order);
+        bytes32 hash = hashOrder(order);
         require(isApproved(order), "Not approved");
-        require(validateOrder(order, sig), "Invalid order");
+        require(validateOrder(order, signature), "Invalid order");
         require(order.price == msg.value.div(amount), "Invalid price");
         require(!_cancelOrders[hash], "Order already canceled.");
         require(
