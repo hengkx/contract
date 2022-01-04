@@ -12,7 +12,7 @@ contract Market {
     Counters.Counter private _itemIds;
 
     modifier onlyOwner(address tokenAddress, uint256 tokenId) {
-        if (getERCStandard(tokenAddress) == 1155) {
+        if (getTokenStandard(tokenAddress) == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
 
             require(
@@ -67,7 +67,7 @@ contract Market {
         return abi.encodePacked(tokenAddress, tokenId);
     }
 
-    function getERCStandard(address tokenAddress)
+    function getTokenStandard(address tokenAddress)
         public
         view
         returns (uint256)
@@ -88,7 +88,7 @@ contract Market {
     ) public onlyOwner(tokenAddress, tokenId) {
         require(price > 0, "Price must be greater than 0");
 
-        if (getERCStandard(tokenAddress) == 1155) {
+        if (getTokenStandard(tokenAddress) == 1155) {
             ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
             uint256 balance = nft.balanceOf(msg.sender, tokenId);
             require(balance >= amount, "Invalid quantity");
@@ -172,7 +172,7 @@ contract Market {
         require(price == msg.value.div(quantity), "Invalid price");
         address tokenAddress = item.tokenAddress;
         uint256 tokenId = item.tokenId;
-        if (getERCStandard(tokenAddress) == 721) {
+        if (getTokenStandard(tokenAddress) == 721) {
             ERC721Tradable nft = ERC721Tradable(tokenAddress);
             address owner = nft.ownerOf(tokenId);
             require(owner != msg.sender, "It's already yours");

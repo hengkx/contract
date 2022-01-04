@@ -34,7 +34,6 @@ describe('Market', function () {
     const order = {
       tokenAddress: '0x9454c9090074e7377ed6f8645708Dd529B3b0C15',
       tokenId: 1,
-      tokenType: 721,
       maker: address,
       price: utils.parseEther('1'),
       amount: 1,
@@ -46,7 +45,6 @@ describe('Market', function () {
       Order: [
         { name: 'tokenAddress', type: 'address' },
         { name: 'tokenId', type: 'uint256' },
-        { name: 'tokenType', type: 'uint256' },
         { name: 'maker', type: 'address' },
         { name: 'price', type: 'uint256' },
         { name: 'amount', type: 'uint256' },
@@ -57,6 +55,7 @@ describe('Market', function () {
     };
 
     const hash = utils._TypedDataEncoder.hash(domain, types, order);
+    // console.log(hash, hash.length);
     const sig = await accounts[0].signMessage(hash);
     expect(
       await market.validateOrder(

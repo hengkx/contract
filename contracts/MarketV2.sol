@@ -19,8 +19,6 @@ contract MarketV2 is EIP712 {
         address tokenAddress;
         /* Order contract id. */
         uint256 tokenId;
-        /* Order token type 721 or 1155. */
-        uint256 tokenType;
         /* Order maker address. */
         address maker;
         /* Order unit price. */
@@ -37,7 +35,7 @@ contract MarketV2 is EIP712 {
 
     bytes32 constant ORDER_TYPE_HASH =
         keccak256(
-            "Order(address tokenAddress,uint256 tokenId,uint256 tokenType,address maker,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt)"
+            "Order(address tokenAddress,uint256 tokenId,address maker,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt)"
         );
 
     mapping(bytes32 => bool) _cancelOrders;
@@ -53,6 +51,19 @@ contract MarketV2 is EIP712 {
         return "hengkx";
     }
 
+    function getTokenStandard(address tokenAddress)
+        public
+        view
+        returns (uint256)
+    {
+        if (IERC721(tokenAddress).supportsInterface(0x80ac58cd)) {
+            return 721;
+        } else if (IERC1155(tokenAddress).supportsInterface(0xd9b67a26)) {
+            return 1155;
+        }
+        return 0;
+    }
+
     function hashOrder(Order memory order) public pure returns (bytes32) {
         return
             keccak256(
@@ -60,7 +71,6 @@ contract MarketV2 is EIP712 {
                     ORDER_TYPE_HASH,
                     order.tokenAddress,
                     order.tokenId,
-                    order.tokenType,
                     order.maker,
                     order.price,
                     order.amount,
@@ -96,7 +106,8 @@ contract MarketV2 is EIP712 {
     }
 
     function isApproved(Order memory order) public view returns (bool) {
-        if (order.tokenType == 721) {
+        uint256 tokenStandard = getTokenStandard(order.tokenAddress);
+        if (tokenStandard == 721) {
             return
                 IERC721(order.tokenAddress).getApproved(order.tokenId) ==
                 address(this) ||
@@ -104,7 +115,7 @@ contract MarketV2 is EIP712 {
                     order.maker,
                     address(this)
                 );
-        } else if (order.tokenType == 1155) {
+        } else if (tokenStandard == 1155) {
             return
                 IERC1155(order.tokenAddress).isApprovedForAll(
                     order.maker,
@@ -120,9 +131,9 @@ contract MarketV2 is EIP712 {
         uint256 amount
     ) public payable {
         bytes32 hash = hashOrder(order);
-        require(isApproved(order), "Not approved");
-        require(validateOrder(order, signature), "Invalid order");
-        require(order.price == msg.value.div(amount), "Invalid price");
+        require(isApproved(order), "Not approved.");
+        require(validateOrder(order, signature), "Invalid order.");
+        require(order.price == msg.value.div(amount), "Invalid price.");
         require(!_cancelOrders[hash], "Order already canceled.");
         require(
             order.amount - _tradedAmounts[hash] >= amount,
@@ -134,14 +145,14 @@ contract MarketV2 is EIP712 {
         );
         payable(address(order.maker)).transfer(msg.value.sub(commission));
         _tradedAmounts[hash] += amount;
-        if (order.tokenType == 721) {
-            IERC721(order.tokenAddress).getApproved(order.tokenId);
+        uint256 tokenStandard = getTokenStandard(order.tokenAddress);
+        if (tokenStandard == 721) {
             IERC721(order.tokenAddress).safeTransferFrom(
                 order.maker,
                 msg.sender,
                 order.tokenId
             );
-        } else if (order.tokenType == 1155) {
+        } else if (tokenStandard == 1155) {
             IERC1155(order.tokenAddress).safeTransferFrom(
                 order.maker,
                 msg.sender,
