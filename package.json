@@ -10,7 +10,7 @@
     "trade": "hardhat run ./scripts/trade.ts",
     "test": "hardhat --network ganache test test/local/*",
     "testOnline": "hardhat --network rinkeby test test/online",
-    "testLog": "hardhat --network hardhat test test/local/*"
+    "testLog": "hardhat --network hardhat test"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.4.0"

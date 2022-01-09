@@ -9,8 +9,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract MarketV2 is EIP712 {
+contract MarketV2 is EIP712, ReentrancyGuard {
     using SafeMath for uint256;
     using Strings for uint256;
 
@@ -40,6 +41,14 @@ contract MarketV2 is EIP712 {
 
     mapping(bytes32 => bool) _cancelOrders;
     mapping(bytes32 => uint256) _tradedAmounts;
+    address public feeAddress = 0x9454c9090074e7377ed6f8645708Dd529B3b0C15;
+    event CancelOrder(bytes32 indexed hash);
+
+    event OrderMatched(
+        bytes32 indexed sellHash,
+        bytes32 indexed buyHash,
+        uint256 amount
+    );
 
     constructor() EIP712("Tom Xu", "1.0.0") {}
 
@@ -64,25 +73,21 @@ contract MarketV2 is EIP712 {
         return 0;
     }
 
-    function hashOrder(Order memory order) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    ORDER_TYPE_HASH,
-                    order.tokenAddress,
-                    order.tokenId,
-                    order.maker,
-                    order.price,
-                    order.amount,
-                    order.listingTime,
-                    order.expirationTime,
-                    order.salt
-                )
-            );
-    }
-
-    function getDigest(Order memory order) public view returns (bytes32) {
-        return _hashTypedDataV4(hashOrder(order));
+    function hashOrder(Order memory order) public view returns (bytes32) {
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                ORDER_TYPE_HASH,
+                order.tokenAddress,
+                order.tokenId,
+                order.maker,
+                order.price,
+                order.amount,
+                order.listingTime,
+                order.expirationTime,
+                order.salt
+            )
+        );
+        return _hashTypedDataV4(hashStruct);
     }
 
     function validateOrder(Order memory order, bytes memory signature)
@@ -92,8 +97,8 @@ contract MarketV2 is EIP712 {
     {
         bytes32 hash = keccak256(
             abi.encodePacked(
-                "\x19Ethereum Signed Message:\n66",
-                uint256(getDigest(order)).toHexString()
+                "\x19Ethereum Signed Message:\n32",
+                hashOrder(order)
             )
         );
         return ECDSA.recover(hash, signature) == order.maker;
@@ -102,7 +107,9 @@ contract MarketV2 is EIP712 {
     function cancelOrder(Order memory order, bytes memory signature) external {
         require(validateOrder(order, signature), "Invalid order");
         require(order.maker == msg.sender, "Not owner");
-        _cancelOrders[hashOrder(order)] = true;
+        bytes32 hash = hashOrder(order);
+        _cancelOrders[hash] = true;
+        emit CancelOrder(hash);
     }
 
     function isApproved(Order memory order) public view returns (bool) {
@@ -125,41 +132,63 @@ contract MarketV2 is EIP712 {
         return false;
     }
 
-    function trade(
-        Order memory order,
+    function atomicMatch(
+        Order memory sellOrder,
+        Order memory buyOrder,
         bytes memory signature,
         uint256 amount
-    ) public payable {
-        bytes32 hash = hashOrder(order);
-        require(isApproved(order), "Not approved.");
-        require(validateOrder(order, signature), "Invalid order.");
-        require(order.price == msg.value.div(amount), "Invalid price.");
-        require(!_cancelOrders[hash], "Order already canceled.");
-        require(
-            order.amount - _tradedAmounts[hash] >= amount,
-            "Invalid amount."
-        );
-        uint256 commission = msg.value.div(100);
-        payable(address(0x9454c9090074e7377ed6f8645708Dd529B3b0C15)).transfer(
-            commission
-        );
-        payable(address(order.maker)).transfer(msg.value.sub(commission));
-        _tradedAmounts[hash] += amount;
-        uint256 tokenStandard = getTokenStandard(order.tokenAddress);
+    ) public payable nonReentrant {
+        bytes32 sellHash = hashOrder(sellOrder);
+        bytes32 buyHash = hashOrder(buyOrder);
+        require(isApproved(sellOrder), "Not approved.");
+        if (msg.sender == sellOrder.maker) {
+            require(validateOrder(buyOrder, signature), "Invalid order.");
+        } else {
+            require(validateOrder(sellOrder, signature), "Invalid order.");
+            require(sellOrder.price == msg.value.div(amount), "Invalid price.");
+            require(
+                sellOrder.amount - _tradedAmounts[sellHash] >= amount,
+                "Invalid amount."
+            );
+        }
+        require(!_cancelOrders[sellHash], "Order already canceled.");
+        require(!_cancelOrders[buyHash], "Order already canceled.");
+        if (msg.value > 0) {
+            uint256 commission = msg.value.div(100);
+            payable(feeAddress).transfer(commission);
+            payable(address(sellOrder.maker)).transfer(
+                msg.value.sub(commission)
+            );
+            _tradedAmounts[sellHash] += amount;
+        } else {
+            ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
+                buyOrder.maker,
+                sellOrder.maker,
+                buyOrder.price
+            );
+            ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
+                sellOrder.maker,
+                feeAddress,
+                buyOrder.price.div(100)
+            );
+        }
+
+        uint256 tokenStandard = getTokenStandard(sellOrder.tokenAddress);
         if (tokenStandard == 721) {
-            IERC721(order.tokenAddress).safeTransferFrom(
-                order.maker,
+            IERC721(sellOrder.tokenAddress).safeTransferFrom(
+                sellOrder.maker,
                 msg.sender,
-                order.tokenId
+                sellOrder.tokenId
             );
         } else if (tokenStandard == 1155) {
-            IERC1155(order.tokenAddress).safeTransferFrom(
-                order.maker,
+            IERC1155(sellOrder.tokenAddress).safeTransferFrom(
+                sellOrder.maker,
                 msg.sender,
-                order.tokenId,
+                sellOrder.tokenId,
                 amount,
                 ""
             );
         }
+        emit OrderMatched(sellHash, buyHash, amount);
     }
 }
