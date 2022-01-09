@@ -42,13 +42,10 @@ contract MarketV2 is EIP712, ReentrancyGuard {
     mapping(bytes32 => bool) _cancelOrders;
     mapping(bytes32 => uint256) _tradedAmounts;
     address public feeAddress = 0x9454c9090074e7377ed6f8645708Dd529B3b0C15;
-    event CancelOrder(bytes32 indexed hash);
 
-    event OrderMatched(
-        bytes32 indexed sellHash,
-        bytes32 indexed buyHash,
-        uint256 amount
-    );
+    event CancelOrder(bytes32 indexed hash);
+    event Buy(bytes32 indexed hash, uint256 amount);
+    event AcceptOffer(bytes32 indexed hash, uint256 amount);
 
     constructor() EIP712("Tom Xu", "1.0.0") {}
 
@@ -95,6 +92,14 @@ contract MarketV2 is EIP712, ReentrancyGuard {
         view
         returns (bool)
     {
+        if (
+            order.listingTime > block.timestamp ||
+            (order.expirationTime != 0 &&
+                order.expirationTime <= block.timestamp)
+        ) {
+            return false;
+        }
+
         bytes32 hash = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -132,63 +137,82 @@ contract MarketV2 is EIP712, ReentrancyGuard {
         return false;
     }
 
-    function atomicMatch(
-        Order memory sellOrder,
-        Order memory buyOrder,
-        bytes memory signature,
+    function _transfer(
+        address tokenAddress,
+        uint256 tokenId,
+        address from,
+        address to,
         uint256 amount
-    ) public payable nonReentrant {
-        bytes32 sellHash = hashOrder(sellOrder);
-        bytes32 buyHash = hashOrder(buyOrder);
-        require(isApproved(sellOrder), "Not approved.");
-        if (msg.sender == sellOrder.maker) {
-            require(validateOrder(buyOrder, signature), "Invalid order.");
-        } else {
-            require(validateOrder(sellOrder, signature), "Invalid order.");
-            require(sellOrder.price == msg.value.div(amount), "Invalid price.");
-            require(
-                sellOrder.amount - _tradedAmounts[sellHash] >= amount,
-                "Invalid amount."
-            );
-        }
-        require(!_cancelOrders[sellHash], "Order already canceled.");
-        require(!_cancelOrders[buyHash], "Order already canceled.");
-        if (msg.value > 0) {
-            uint256 commission = msg.value.div(100);
-            payable(feeAddress).transfer(commission);
-            payable(address(sellOrder.maker)).transfer(
-                msg.value.sub(commission)
-            );
-            _tradedAmounts[sellHash] += amount;
-        } else {
-            ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
-                buyOrder.maker,
-                sellOrder.maker,
-                buyOrder.price
-            );
-            ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
-                sellOrder.maker,
-                feeAddress,
-                buyOrder.price.div(100)
-            );
-        }
-
-        uint256 tokenStandard = getTokenStandard(sellOrder.tokenAddress);
+    ) private {
+        uint256 tokenStandard = getTokenStandard(tokenAddress);
         if (tokenStandard == 721) {
-            IERC721(sellOrder.tokenAddress).safeTransferFrom(
-                sellOrder.maker,
-                msg.sender,
-                sellOrder.tokenId
-            );
+            IERC721(tokenAddress).safeTransferFrom(from, to, tokenId);
         } else if (tokenStandard == 1155) {
-            IERC1155(sellOrder.tokenAddress).safeTransferFrom(
-                sellOrder.maker,
-                msg.sender,
-                sellOrder.tokenId,
+            IERC1155(tokenAddress).safeTransferFrom(
+                from,
+                to,
+                tokenId,
                 amount,
                 ""
             );
         }
-        emit OrderMatched(sellHash, buyHash, amount);
+    }
+
+    function acceptOffer(
+        Order memory order,
+        bytes memory signature,
+        uint256 amount
+    ) public payable nonReentrant {
+        bytes32 hash = hashOrder(order);
+        require(validateOrder(order, signature), "Invalid order.");
+        require(!_cancelOrders[hash], "Order already canceled.");
+
+        ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
+            order.maker,
+            msg.sender,
+            order.price
+        );
+        ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
+            order.maker,
+            msg.sender,
+            order.price.div(100)
+        );
+
+        _transfer(
+            order.tokenAddress,
+            order.tokenId,
+            msg.sender,
+            order.maker,
+            amount
+        );
+        emit AcceptOffer(hash, amount);
+    }
+
+    function buy(
+        Order memory order,
+        bytes memory signature,
+        uint256 amount
+    ) public payable nonReentrant {
+        bytes32 hash = hashOrder(order);
+        require(validateOrder(order, signature), "Invalid order.");
+        require(order.price == msg.value.div(amount), "Invalid price.");
+        require(
+            order.amount - _tradedAmounts[hash] >= amount,
+            "Invalid amount."
+        );
+        require(!_cancelOrders[hash], "Order already canceled.");
+        uint256 commission = msg.value.div(100);
+        payable(feeAddress).transfer(commission);
+        payable(address(order.maker)).transfer(msg.value.sub(commission));
+        _tradedAmounts[hash] += amount;
+
+        _transfer(
+            order.tokenAddress,
+            order.tokenId,
+            order.maker,
+            msg.sender,
+            amount
+        );
+        emit Buy(hash, amount);
     }
 }
