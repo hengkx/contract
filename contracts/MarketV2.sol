@@ -173,8 +173,8 @@ contract MarketV2 is EIP712, ReentrancyGuard {
             order.price
         );
         ERC20(0xc778417E063141139Fce010982780140Aa0cD5Ab).transferFrom(
-            order.maker,
             msg.sender,
+            feeAddress,
             order.price.div(100)
         );
 
