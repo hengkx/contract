@@ -113,6 +113,10 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         uint256 id,
         uint256 value
     ) public {
+        require(
+            account == _msgSender() || isApprovedForAll(account, _msgSender()),
+            "ERC1155: caller is not owner nor approved"
+        );
         _burn(account, id, value);
         delete _creators[id];
     }
@@ -122,6 +126,10 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         uint256[] memory ids,
         uint256[] memory values
     ) public {
+        require(
+            account == _msgSender() || isApprovedForAll(account, _msgSender()),
+            "ERC1155: caller is not owner nor approved"
+        );
         _burnBatch(account, ids, values);
         for (uint256 i = 0; i < ids.length; i++) {
             delete _creators[ids[i]];
