@@ -121,6 +121,10 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable {
             "ERC1155: caller is not owner nor approved"
         );
         _burn(account, id, value);
+        tokenSupply[id] -= value;
+        if (tokenSupply[id] == 0) {
+            delete _tokenURIs[id];
+        }
         delete _creators[id];
     }
 
@@ -135,7 +139,12 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable {
         );
         _burnBatch(account, ids, values);
         for (uint256 i = 0; i < ids.length; i++) {
+            uint256 id = ids[i];
             delete _creators[ids[i]];
+            tokenSupply[id] -= values[i];
+            if (tokenSupply[id] == 0) {
+                delete _tokenURIs[id];
+            }
         }
     }
 }
