@@ -6,6 +6,7 @@
   "scripts": {
     "deploy": "hardhat --network rinkeby run ./scripts/deploy.ts",
     "deployNFT": "hardhat run ./scripts/deployNFT.ts",
+    "deployProxy": "hardhat run ./scripts/deployProxy.ts",
     "mint": "hardhat run ./scripts/mint.ts",
     "trade": "hardhat run ./scripts/trade.ts",
     "test": "hardhat --network ganache test test/local/*",

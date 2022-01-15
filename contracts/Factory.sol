@@ -7,6 +7,8 @@ contract Factory {
     event Created(address indexed tradable, uint256 erc);
 
     function deploy(
+        string memory name,
+        string memory symbol,
         address proxy,
         Tradable.Recipient[] memory saleRecipients,
         uint256 sellerFeeBasisPoints,
@@ -18,6 +20,8 @@ contract Factory {
         if (erc == 721) {
             tradable = address(
                 new ERC721Tradable(
+                    name,
+                    symbol,
                     proxy,
                     saleRecipients,
                     sellerFeeBasisPoints,
@@ -28,6 +32,8 @@ contract Factory {
         } else {
             tradable = address(
                 new ERC1155Tradable(
+                    name,
+                    symbol,
                     proxy,
                     saleRecipients,
                     sellerFeeBasisPoints,
