@@ -2,167 +2,184 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./ERC721Tradable.sol";
 import "./ERC1155Tradable.sol";
 
-contract Market {
+contract Market is EIP712, ReentrancyGuard {
     using SafeMath for uint256;
     using Counters for Counters.Counter;
     mapping(bytes => uint256) private _assetPrices;
     Counters.Counter private _itemIds;
 
-    modifier onlyOwner(
-        address tokenAddress,
-        uint256 tokenId,
-        uint256 erc
-    ) {
-        if (erc == 1155) {
-            ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
-
-            require(
-                nft.balanceOf(msg.sender, tokenId) > 0,
-                "Ownable: caller is not the owner"
-            );
-        } else {
-            ERC721Tradable nft = ERC721Tradable(tokenAddress);
-            require(
-                nft.ownerOf(tokenId) == msg.sender,
-                "Ownable: caller is not the owner"
-            );
-        }
-        _;
-    }
-
-    modifier onlyOrderOwner(uint256 orderId) {
-        MarketItem memory item = idToMarketItem[orderId];
-        uint256 tokenId = item.tokenId;
-        if (item.erc == 1155) {
-            ERC1155Tradable nft = ERC1155Tradable(item.tokenAddress);
-
-            require(
-                nft.balanceOf(msg.sender, tokenId) > 0,
-                "Ownable: caller is not the owner"
-            );
-        } else {
-            ERC721Tradable nft = ERC721Tradable(item.tokenAddress);
-            require(
-                nft.ownerOf(tokenId) == msg.sender,
-                "Ownable: caller is not the owner"
-            );
-        }
-        _;
-    }
-
-    struct MarketItem {
-        uint256 orderId;
+    struct Order {
+        /* Order contract address. */
         address tokenAddress;
+        /* Order contract id. */
         uint256 tokenId;
-        address payable seller;
+        /* Order maker address. */
+        address maker;
+        address currency;
+        /* Order unit price. */
         uint256 price;
+        /* Order total sell amount. */
         uint256 amount;
-        uint256 erc;
+        /* Order listing timestamp. */
+        uint256 listingTime;
+        /* Order expiration timestamp - 0 for no expiry. */
+        uint256 expirationTime;
+        /* Order salt to prevent duplicate hashes. */
+        uint256 salt;
     }
 
-    mapping(uint256 => MarketItem) private idToMarketItem;
+    bytes32 constant ORDER_TYPE_HASH =
+        keccak256(
+            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt)"
+        );
 
-    event Sale(
-        uint256 indexed orderId,
-        address indexed tokenAddress,
-        uint256 indexed tokenId,
-        address seller,
-        uint256 price,
-        uint256 amount,
-        uint256 erc
+    event CancelOrder(bytes32 indexed hash);
+    event OrderMatched(
+        bytes32 indexed sellerHash,
+        bytes32 indexed buyerrHash,
+        uint256 amount
     );
 
-    event CancelSale(uint256 indexed orderId);
+    mapping(bytes32 => bool) _cancelOrders;
+    mapping(bytes32 => uint256) _tradedAmounts;
 
-    event Buy(uint256 indexed orderId, address indexed buyer, uint256 amount);
+    constructor() EIP712("Culture Vault", "1.0.0") {}
 
-    function getKey(address tokenAddress, uint256 tokenId)
-        internal
-        pure
-        returns (bytes memory)
+    function getTokenStandard(address tokenAddress)
+        public
+        view
+        returns (uint256)
     {
-        return abi.encodePacked(tokenAddress, tokenId);
+        if (IERC721(tokenAddress).supportsInterface(0x80ac58cd)) {
+            return 721;
+        } else if (IERC1155(tokenAddress).supportsInterface(0xd9b67a26)) {
+            return 1155;
+        }
+        return 0;
     }
 
-    function createSellOrder(
-        address tokenAddress,
-        uint256 tokenId,
-        uint256 price,
-        uint256 amount,
-        uint256 erc
-    ) public onlyOwner(tokenAddress, tokenId, erc) {
-        require(price > 0, "Price must be greater than 0");
+    function hashOrder(Order memory order) public view returns (bytes32) {
+        bytes32 hashStruct = keccak256(
+            abi.encode(
+                ORDER_TYPE_HASH,
+                order.tokenAddress,
+                order.tokenId,
+                order.maker,
+                order.currency,
+                order.price,
+                order.amount,
+                order.listingTime,
+                order.expirationTime,
+                order.salt
+            )
+        );
+        return _hashTypedDataV4(hashStruct);
+    }
 
-        if (erc == 1155) {
-            ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
-            uint256 balance = nft.balanceOf(msg.sender, tokenId);
-            require(balance >= amount, "Invalid quantity");
+    function validateOrder(Order memory order, bytes memory signature)
+        public
+        view
+        returns (bool)
+    {
+        if (
+            order.listingTime > block.timestamp ||
+            (order.expirationTime != 0 &&
+                order.expirationTime <= block.timestamp)
+        ) {
+            return false;
+        }
+
+        if (order.maker == msg.sender) {
+            return true;
+        }
+
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                hashOrder(order)
+            )
+        );
+        return ECDSA.recover(hash, signature) == order.maker;
+    }
+
+    function cancelOrder(Order memory order, bytes memory signature) external {
+        require(validateOrder(order, signature), "Invalid order");
+        require(order.maker == msg.sender, "Not owner");
+        bytes32 hash = hashOrder(order);
+        _cancelOrders[hash] = true;
+        emit CancelOrder(hash);
+    }
+
+    function isApproved(Order memory order) public view returns (bool) {
+        uint256 tokenStandard = getTokenStandard(order.tokenAddress);
+        if (tokenStandard == 721) {
+            return
+                IERC721(order.tokenAddress).getApproved(order.tokenId) ==
+                address(this) ||
+                IERC721(order.tokenAddress).isApprovedForAll(
+                    order.maker,
+                    address(this)
+                );
+        } else if (tokenStandard == 1155) {
+            return
+                IERC1155(order.tokenAddress).isApprovedForAll(
+                    order.maker,
+                    address(this)
+                );
+        }
+        return false;
+    }
+
+    function _transferValue(
+        address currency,
+        address from,
+        address to,
+        uint256 value
+    ) private {
+        if (currency == address(0)) {
+            payable(to).transfer(value);
         } else {
-            bytes memory key = getKey(tokenAddress, tokenId);
-            require(_assetPrices[key] == 0, "Price has been set");
-            _assetPrices[key] = price;
+            ERC20(currency).transferFrom(from, to, value);
         }
-        _itemIds.increment();
-        uint256 orderId = _itemIds.current();
-        idToMarketItem[orderId] = MarketItem(
-            orderId,
-            tokenAddress,
-            tokenId,
-            payable(msg.sender),
-            price,
-            amount,
-            erc
-        );
-        emit Sale(
-            orderId,
-            tokenAddress,
-            tokenId,
-            msg.sender,
-            price,
-            amount,
-            erc
-        );
     }
 
-    function cancelOrder(uint256 orderId) public onlyOrderOwner(orderId) {
-        MarketItem memory item = idToMarketItem[orderId];
-        if (item.erc == 721) {
-            bytes memory key = getKey(item.tokenAddress, item.tokenId);
-            delete _assetPrices[key];
-        }
-        delete idToMarketItem[orderId];
-        emit CancelSale(orderId);
-    }
-
-    function getPrice(uint256 orderId) public view returns (uint256) {
-        return idToMarketItem[orderId].price;
-    }
-
-    function _settlement(Tradable.Recipient[] memory recipients, uint256 money)
-        private
-    {
+    function _settlement(
+        Tradable.Recipient[] memory recipients,
+        uint256 money,
+        address buyer,
+        address currency
+    ) private {
         uint256 paid = 0;
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len - 1; i++) {
             Tradable.Recipient memory recipient = recipients[i];
             uint256 currentFee = money.mul(recipient.points).div(100);
-            payable(address(recipient.recipient)).transfer(currentFee);
+            _transferValue(currency, buyer, recipient.recipient, currentFee);
             paid += currentFee;
         }
-        payable(address(recipients[len - 1].recipient)).transfer(
+        _transferValue(
+            currency,
+            buyer,
+            address(recipients[len - 1].recipient),
             money.sub(paid)
         );
     }
 
     function settlement(
         address tokenAddress,
-        address owner,
         uint256 tokenId,
         uint256 money,
-        uint256 quantity
+        uint256 quantity,
+        address seller,
+        address buyer,
+        address currency
     ) public {
         Tradable nft = Tradable(tokenAddress);
         // 版税
@@ -170,54 +187,93 @@ contract Market {
         // 实际分给卖家的钱
         uint256 receipts = money.sub(fee);
         // 第一次参与分成的数量（解决第一次销售多个owner问题）
-        uint256 firstAmount = nft.getFistAmount(owner, tokenId);
+        uint256 firstAmount = nft.getFistAmount(seller, tokenId);
         if (firstAmount >= quantity) {
-            _settlement(nft.getSaleRecipients(), receipts);
+            _settlement(nft.getSaleRecipients(), receipts, buyer, currency);
         } else if (firstAmount > 0) {
             uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
-            _settlement(nft.getSaleRecipients(), firstReceipts);
-            payable(address(owner)).transfer(receipts.sub(firstReceipts));
+            _settlement(
+                nft.getSaleRecipients(),
+                firstReceipts,
+                buyer,
+                currency
+            );
+            _transferValue(
+                currency,
+                buyer,
+                seller,
+                receipts.sub(firstReceipts)
+            );
         } else {
-            payable(address(owner)).transfer(receipts);
+            _transferValue(currency, buyer, seller, receipts);
         }
-        _settlement(nft.getFeeRecipients(), fee);
+        _settlement(nft.getFeeRecipients(), fee, buyer, currency);
     }
 
-    function buy(uint256 orderId, uint256 quantity) public payable {
-        MarketItem memory item = idToMarketItem[orderId];
-        uint256 price = item.price;
-        require(price > 0, "No sales");
-        require(price == msg.value.div(quantity), "Invalid price");
-        address tokenAddress = item.tokenAddress;
-        uint256 tokenId = item.tokenId;
-        if (item.erc == 721) {
-            ERC721Tradable nft = ERC721Tradable(tokenAddress);
-            address owner = nft.ownerOf(tokenId);
-            require(owner != msg.sender, "It's already yours");
-            settlement(tokenAddress, owner, tokenId, msg.value, 1);
-            nft.safeTransferFrom(owner, msg.sender, tokenId);
-            bytes memory key = getKey(tokenAddress, tokenId);
-            delete _assetPrices[key];
-        } else {
-            ERC1155Tradable nft = ERC1155Tradable(tokenAddress);
-            uint256 balance = nft.balanceOf(item.seller, item.tokenId);
-            require(balance >= quantity, "Invliad quantity");
-            require(item.amount >= quantity, "Invliad sale quantity");
-            settlement(tokenAddress, item.seller, tokenId, msg.value, quantity);
-            nft.safeTransferFrom(
-                item.seller,
-                msg.sender,
+    function _transfer(
+        address tokenAddress,
+        uint256 tokenId,
+        address from,
+        address to,
+        uint256 amount
+    ) private {
+        uint256 tokenStandard = getTokenStandard(tokenAddress);
+        require(tokenStandard != 0, "Not support.");
+        if (tokenStandard == 721) {
+            IERC721(tokenAddress).safeTransferFrom(from, to, tokenId);
+        } else if (tokenStandard == 1155) {
+            IERC1155(tokenAddress).safeTransferFrom(
+                from,
+                to,
                 tokenId,
-                quantity,
+                amount,
                 ""
             );
         }
+    }
 
-        if (idToMarketItem[orderId].amount > quantity) {
-            idToMarketItem[orderId].amount -= quantity;
-        } else {
-            delete idToMarketItem[orderId];
+    function orderMatch(
+        Order memory sellerOrder,
+        bytes memory sellerSignature,
+        Order memory buyerOrder,
+        bytes memory buyerSignature,
+        uint256 amount
+    ) public payable nonReentrant {
+        bytes32 sellerHash = hashOrder(sellerOrder);
+        bytes32 buyerHash = hashOrder(buyerOrder);
+        require(validateOrder(sellerOrder, sellerSignature), "Invalid order.");
+        require(!_cancelOrders[sellerHash], "Order already canceled.");
+
+        require(validateOrder(buyerOrder, buyerSignature), "Invalid order.");
+        require(!_cancelOrders[buyerHash], "Order already canceled.");
+
+        require(
+            sellerOrder.amount - _tradedAmounts[sellerHash] >= amount,
+            "Invalid amount."
+        );
+        address currency = sellerOrder.currency;
+        address tokenAddress = sellerOrder.tokenAddress;
+        address seller = sellerOrder.maker;
+        uint256 tokenId = sellerOrder.tokenId;
+        address buyer = buyerOrder.maker;
+        uint256 price = sellerOrder.price;
+
+        if (msg.value > 0) {
+            require(price == msg.value.div(amount), "Invalid price");
         }
-        emit Buy(orderId, msg.sender, quantity);
+
+        settlement(
+            tokenAddress,
+            tokenId,
+            price.mul(amount),
+            amount,
+            seller,
+            buyer,
+            currency
+        );
+
+        _transfer(tokenAddress, tokenId, seller, buyer, amount);
+
+        emit OrderMatched(sellerHash, buyerHash, amount);
     }
 }

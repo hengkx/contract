@@ -12,7 +12,7 @@ async function main() {
   // await run('verify:verify', {
   //   address: market.address,
   // });
-
+  return;
   const NFT = await ethers.getContractFactory('ERC721Tradable');
   const feeRecipients = [
     ['0x43d6914F10151A3dB15D7aB32bf4c5cD44c48210', 50],
