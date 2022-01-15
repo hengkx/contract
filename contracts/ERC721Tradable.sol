@@ -4,12 +4,15 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
+import "./ProxyRegistry.sol";
 
 contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
     using Strings for uint256;
     mapping(uint256 => uint256) private _firstSales;
 
     constructor(
+        string memory name,
+        string memory symbol,
         address proxy,
         Recipient[] memory saleRecipients,
         uint256 sellerFeeBasisPoints,
@@ -23,7 +26,7 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
             feeRecipients,
             url
         )
-        ERC721("CultureVault", "CV")
+        ERC721(name, symbol)
     {}
 
     function tokenURI(uint256 tokenId)
@@ -60,7 +63,8 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         override
         returns (bool)
     {
-        if (_proxyAddress == operator) {
+        ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
+        if (proxyRegistry.proxies(operator)) {
             return true;
         }
 

@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
+import "./ProxyRegistry.sol";
 
 contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
     using Counters for Counters.Counter;
@@ -12,7 +13,12 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
 
     mapping(uint256 => mapping(address => uint256)) private _firstSales;
 
+    string private _name;
+    string private _symbol;
+
     constructor(
+        string memory name_,
+        string memory symbol_,
         address proxy,
         Recipient[] memory saleRecipients,
         uint256 sellerFeeBasisPoints,
@@ -27,14 +33,17 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
             url
         )
         ERC1155("")
-    {}
-
-    function name() public pure returns (string memory) {
-        return "CultureVault";
+    {
+        _name = name_;
+        _symbol = symbol_;
     }
 
-    function symbol() public pure returns (string memory) {
-        return "CV";
+    function name() public view returns (string memory) {
+        return _name;
+    }
+
+    function symbol() public view returns (string memory) {
+        return _symbol;
     }
 
     function uri(uint256 tokenId) public view override returns (string memory) {
@@ -61,7 +70,8 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         override
         returns (bool)
     {
-        if (_proxyAddress == operator) {
+        ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
+        if (proxyRegistry.proxies(operator)) {
             return true;
         }
 
