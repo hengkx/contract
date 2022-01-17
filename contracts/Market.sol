@@ -258,6 +258,12 @@ contract Market is EIP712, ReentrancyGuard {
 
         require(validateOrder(buyOrder, buyerSignature), "Invalid order.");
         require(!cancelledOrFinalized[buyHash], "Order already canceled.");
+        require(sellOrder.price <= buyOrder.price, "Invalid price.");
+
+        uint256 price = Math.max(sellOrder.price, buyOrder.price);
+        if (msg.value > 0) {
+            require(price <= msg.value.div(amount), "Invalid price");
+        }
 
         /* Mark previously signed or approved orders as finalized. */
         if (msg.sender != buyOrder.maker) {
@@ -272,12 +278,6 @@ contract Market is EIP712, ReentrancyGuard {
                 cancelledOrFinalized[sellHash] = true;
             }
             _tradedAmounts[sellHash] += amount;
-        }
-
-        uint256 price = Math.max(sellOrder.price, buyOrder.price);
-
-        if (msg.value > 0) {
-            require(price == msg.value.div(amount), "Invalid price");
         }
 
         address currency = sellOrder.currency;
