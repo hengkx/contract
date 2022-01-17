@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/draft-EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -33,21 +34,26 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 expirationTime;
         /* Order salt to prevent duplicate hashes. */
         uint256 salt;
+        /* 1 sell 2 offer 3 auction */
+        uint256 side;
     }
 
     bytes32 constant ORDER_TYPE_HASH =
         keccak256(
-            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt)"
+            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side)"
         );
 
     event CancelOrder(bytes32 indexed hash);
     event OrderMatched(
-        bytes32 indexed sellerHash,
-        bytes32 indexed buyerrHash,
-        uint256 amount
+        bytes32 indexed sellHash,
+        bytes32 indexed buyHash,
+        address maker,
+        address taker,
+        uint256 amount,
+        uint256 price
     );
 
-    mapping(bytes32 => bool) _cancelOrders;
+    mapping(bytes32 => bool) public cancelledOrFinalized;
     mapping(bytes32 => uint256) _tradedAmounts;
 
     constructor() EIP712("Culture Vault", "1.0.0") {}
@@ -77,7 +83,8 @@ contract Market is EIP712, ReentrancyGuard {
                 order.amount,
                 order.listingTime,
                 order.expirationTime,
-                order.salt
+                order.salt,
+                order.side
             )
         );
         return _hashTypedDataV4(hashStruct);
@@ -113,7 +120,7 @@ contract Market is EIP712, ReentrancyGuard {
         require(validateOrder(order, signature), "Invalid order");
         require(order.maker == msg.sender, "Not owner");
         bytes32 hash = hashOrder(order);
-        _cancelOrders[hash] = true;
+        cancelledOrFinalized[hash] = true;
         emit CancelOrder(hash);
     }
 
@@ -233,39 +240,56 @@ contract Market is EIP712, ReentrancyGuard {
     }
 
     function orderMatch(
-        Order memory sellerOrder,
+        Order memory sellOrder,
         bytes memory sellerSignature,
-        Order memory buyerOrder,
+        Order memory buyOrder,
         bytes memory buyerSignature,
         uint256 amount
     ) public payable nonReentrant {
-        bytes32 sellerHash = hashOrder(sellerOrder);
-        bytes32 buyerHash = hashOrder(buyerOrder);
-        require(validateOrder(sellerOrder, sellerSignature), "Invalid order.");
-        require(!_cancelOrders[sellerHash], "Order already canceled.");
-
-        require(validateOrder(buyerOrder, buyerSignature), "Invalid order.");
-        require(!_cancelOrders[buyerHash], "Order already canceled.");
-
+        bytes32 sellHash = hashOrder(sellOrder);
+        bytes32 buyHash = hashOrder(buyOrder);
         require(
-            sellerOrder.amount - _tradedAmounts[sellerHash] >= amount,
-            "Invalid amount."
+            sellOrder.side == 1 || sellOrder.side == 3,
+            "Order side error."
         );
-        address currency = sellerOrder.currency;
-        address tokenAddress = sellerOrder.tokenAddress;
-        address seller = sellerOrder.maker;
-        uint256 tokenId = sellerOrder.tokenId;
-        address buyer = buyerOrder.maker;
-        uint256 price = sellerOrder.price;
+        require(buyOrder.side == 2, "Order side error.");
+        require(validateOrder(sellOrder, sellerSignature), "Invalid order.");
+        require(!cancelledOrFinalized[sellHash], "Order already canceled.");
+
+        require(validateOrder(buyOrder, buyerSignature), "Invalid order.");
+        require(!cancelledOrFinalized[buyHash], "Order already canceled.");
+
+        /* Mark previously signed or approved orders as finalized. */
+        if (msg.sender != buyOrder.maker) {
+            cancelledOrFinalized[buyHash] = true;
+        }
+        if (msg.sender != sellOrder.maker) {
+            require(
+                sellOrder.amount - _tradedAmounts[sellHash] >= amount,
+                "Invalid amount."
+            );
+            if (sellOrder.amount - _tradedAmounts[sellHash] == amount) {
+                cancelledOrFinalized[sellHash] = true;
+            }
+            _tradedAmounts[sellHash] += amount;
+        }
+
+        uint256 price = Math.max(sellOrder.price, buyOrder.price);
 
         if (msg.value > 0) {
             require(price == msg.value.div(amount), "Invalid price");
         }
 
+        address currency = sellOrder.currency;
+        address tokenAddress = sellOrder.tokenAddress;
+        address seller = sellOrder.maker;
+        uint256 tokenId = sellOrder.tokenId;
+        address buyer = buyOrder.maker;
+        uint256 realPrice = price.mul(amount);
         settlement(
             tokenAddress,
             tokenId,
-            price.mul(amount),
+            realPrice,
             amount,
             seller,
             buyer,
@@ -274,6 +298,6 @@ contract Market is EIP712, ReentrancyGuard {
 
         _transfer(tokenAddress, tokenId, seller, buyer, amount);
 
-        emit OrderMatched(sellerHash, buyerHash, amount);
+        emit OrderMatched(sellHash, buyHash, seller, buyer, amount, realPrice);
     }
 }
