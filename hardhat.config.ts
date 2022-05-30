@@ -19,16 +19,20 @@ const config: HardhatUserConfig = {
       url: 'https://polygon-mumbai.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
       accounts: [PRIVATE_KEY, PRIVATE_KEY1],
     },
+    polygon: {
+      url: 'https://polygon-mainnet.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
+      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+    },
   },
   etherscan: {
     // apiKey: ETHERSCAN_KEY,
     apiKey: MUMBAI_KEY,
   },
   solidity: {
-    version: '0.8.9',
+    version: '0.8.7',
     settings: {
       optimizer: {
-        enabled: true,
+        enabled: false,
         runs: 200,
       },
     },
