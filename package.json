@@ -12,7 +12,7 @@
     "test": "hardhat --network ganache test test/local/*",
     "testOnline": "hardhat --network rinkeby test test/online",
     "testLog": "hardhat --network hardhat test test/local/*",
-    "verify": "hardhat --network polygon run ./scripts/verify.ts"
+    "verify": "hardhat --network rinkeby run ./scripts/verify.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0"

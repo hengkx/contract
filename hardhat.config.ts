@@ -10,26 +10,33 @@ const { PRIVATE_KEY, PRIVATE_KEY1, ETHERSCAN_KEY, MUMBAI_KEY } = dotenv.config()
 const config: HardhatUserConfig = {
   defaultNetwork: 'rinkeby',
   networks: {
-    rinkeby: {
-      url: 'https://rinkeby.infura.io/v3/868df5ff3ca64bdc8ae50772874a6682',
-      // url: 'https://eth-rinkeby.alchemyapi.io/v2/IZcjQxK29GvxCuSHPc2afnlCho-_a4n8',
+    mainnet: {
+      url: 'https://mainnet.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
       accounts: [PRIVATE_KEY, PRIVATE_KEY1],
     },
-    mumbai: {
-      url: 'https://polygon-mumbai.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
+    rinkeby: {
+      url: 'https://rinkeby.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
       accounts: [PRIVATE_KEY, PRIVATE_KEY1],
     },
     polygon: {
       url: 'https://polygon-mainnet.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
       accounts: [PRIVATE_KEY, PRIVATE_KEY1],
     },
+    polygonMumbai: {
+      url: 'https://polygon-mumbai.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
+      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+    },
   },
   etherscan: {
-    // apiKey: ETHERSCAN_KEY,
-    apiKey: MUMBAI_KEY,
+    apiKey: {
+      mainnet: ETHERSCAN_KEY,
+      rinkeby: ETHERSCAN_KEY,
+      polygon: MUMBAI_KEY,
+      polygonMumbai: MUMBAI_KEY,
+    },
   },
   solidity: {
-    version: '0.8.7',
+    version: '0.8.11',
     settings: {
       optimizer: {
         enabled: false,
