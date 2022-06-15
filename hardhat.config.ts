@@ -36,11 +36,29 @@ const config: HardhatUserConfig = {
     },
   },
   solidity: {
-    version: '0.8.11',
-    settings: {
-      optimizer: {
-        enabled: false,
-        runs: 200,
+    compilers: [
+      {
+        version: '0.8.11',
+        settings: {
+          optimizer: {
+            enabled: false,
+            runs: 200,
+          },
+        },
+      },
+      {
+        version: '0.8.7',
+        settings: {
+          optimizer: {
+            enabled: false,
+            runs: 200,
+          },
+        },
+      },
+    ],
+    overrides: {
+      'contracts/ProxyRegistry.sol': {
+        version: '0.8.7',
       },
     },
   },
