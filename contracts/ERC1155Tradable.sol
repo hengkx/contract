@@ -2,11 +2,10 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
 import "./ProxyRegistry.sol";
 
-contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
+contract ERC1155Tradable is Tradable, ERC1155Pausable {
     using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIds;
@@ -84,6 +83,22 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
 
     function unpause() public virtual onlyOwner whenPaused {
         _unpause();
+    }
+
+    function _beforeTokenTransfer(
+        address operator,
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) internal override {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+        if (owner() != msg.sender) {
+            if (onlyWhiteListStatus()) {
+                require(verifyWhitelist(msg.sender), "Only whitelist transfer");
+            }
+        }
     }
 
     function _safeTransferFrom(

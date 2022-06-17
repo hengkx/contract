@@ -37,17 +37,17 @@ const config: HardhatUserConfig = {
   },
   solidity: {
     compilers: [
+      // {
+      //   version: '0.8.9',
+      //   settings: {
+      //     optimizer: {
+      //       enabled: false,
+      //       runs: 200,
+      //     },
+      //   },
+      // },
       {
-        version: '0.8.11',
-        settings: {
-          optimizer: {
-            enabled: false,
-            runs: 200,
-          },
-        },
-      },
-      {
-        version: '0.8.7',
+        version: '0.8.15',
         settings: {
           optimizer: {
             enabled: false,
@@ -56,11 +56,11 @@ const config: HardhatUserConfig = {
         },
       },
     ],
-    overrides: {
-      'contracts/ProxyRegistry.sol': {
-        version: '0.8.7',
-      },
-    },
+    // overrides: {
+    //   'contracts/ProxyRegistry.sol': {
+    //     version: '0.8.7',
+    //   },
+    // },
   },
   mocha: {
     timeout: 2000000,
