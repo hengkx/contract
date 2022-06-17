@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-abstract contract Tradable is Ownable {
+abstract contract Tradable {
     using SafeMath for uint256;
 
     struct Recipient {
@@ -18,11 +18,6 @@ abstract contract Tradable is Ownable {
     uint256 private _sellerFeeBasisPoints;
     Recipient[] private _feeRecipients;
     string private _contractURI;
-    mapping(address => bool) _whitelistedAddresses;
-    bool _isOnlyWhitelist = false;
-
-    event AddWhitelist(address whitelist);
-    event RemoveWhitelist(address whitelist);
 
     mapping(uint256 => address) internal _creators;
     mapping(uint256 => string) internal _tokenURIs;
@@ -59,10 +54,6 @@ abstract contract Tradable is Ownable {
         return _proxyAddress;
     }
 
-    function setProxyAddress(address proxyAddress) public onlyOwner {
-        _proxyAddress = proxyAddress;
-    }
-
     function getSaleRecipients() public view returns (Recipient[] memory) {
         return _saleRecipients;
     }
@@ -93,47 +84,5 @@ abstract contract Tradable is Ownable {
 
     function contractURI() public view returns (string memory) {
         return _contractURI;
-    }
-
-    function setOnlyWhiteListStatus(bool status) public onlyOwner {
-        _isOnlyWhitelist = status;
-    }
-
-    function onlyWhiteListStatus() public view returns (bool) {
-        return _isOnlyWhitelist;
-    }
-
-    function addBatchWhitelist(address[] memory whitelists) public onlyOwner {
-        for (uint256 i = 0; i < whitelists.length; i++) {
-            addWhitelist(whitelists[i]);
-        }
-    }
-
-    function addWhitelist(address whitelist) public onlyOwner {
-        _whitelistedAddresses[whitelist] = true;
-        emit AddWhitelist(whitelist);
-    }
-
-    function removeWhitelist(address whitelist) public onlyOwner {
-        delete _whitelistedAddresses[whitelist];
-        emit RemoveWhitelist(whitelist);
-    }
-
-    function removeBatchWhitelist(address[] memory whitelists)
-        public
-        onlyOwner
-    {
-        for (uint256 i = 0; i < whitelists.length; i++) {
-            removeWhitelist(whitelists[i]);
-        }
-    }
-
-    function verifyWhitelist(address whitelistedAddress)
-        public
-        view
-        returns (bool)
-    {
-        bool userIsWhitelisted = _whitelistedAddresses[whitelistedAddress];
-        return userIsWhitelisted;
     }
 }

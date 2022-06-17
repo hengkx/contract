@@ -2,10 +2,11 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Tradable.sol";
 import "./ProxyRegistry.sol";
 
-contract ERC721Tradable is Tradable, ERC721Pausable {
+contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
     using Strings for uint256;
     mapping(uint256 => uint256) private _firstSales;
 
@@ -85,19 +86,6 @@ contract ERC721Tradable is Tradable, ERC721Pausable {
 
     function unpause() public onlyOwner whenPaused {
         _unpause();
-    }
-
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal override {
-        super._beforeTokenTransfer(from, to, tokenId);
-        if (owner() != msg.sender) {
-            if (onlyWhiteListStatus()) {
-                require(verifyWhitelist(msg.sender), "Only whitelist transfer");
-            }
-        }
     }
 
     function _transfer(
