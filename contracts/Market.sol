@@ -37,11 +37,13 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 salt;
         /* 1 sell 2 offer 3 auction */
         uint256 side;
+        address serviceFeeAddress;
+        uint256 serviceFeePoint;
     }
 
     bytes32 constant ORDER_TYPE_HASH =
         keccak256(
-            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side)"
+            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side,address serviceFeeAddress,uint256 serviceFeePoint)"
         );
 
     event CancelOrder(bytes32 indexed hash);
@@ -85,7 +87,9 @@ contract Market is EIP712, ReentrancyGuard {
                 order.listingTime,
                 order.expirationTime,
                 order.salt,
-                order.side
+                order.side,
+                order.serviceFeeAddress,
+                order.serviceFeePoint
             )
         );
         return _hashTypedDataV4(hashStruct);
@@ -187,13 +191,17 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 quantity,
         address seller,
         address buyer,
-        address currency
+        address currency,
+        address serviceFeeAddress,
+        uint256 serviceFeePoint
     ) public {
         Tradable nft = Tradable(tokenAddress);
         // 版税
         uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+        uint256 serviceFee = money.mul(serviceFeePoint).div(100);
+        _transferValue(currency, buyer, serviceFeeAddress, serviceFee);
         // 实际分给卖家的钱
-        uint256 receipts = money.sub(fee);
+        uint256 receipts = money.sub(fee).sub(serviceFee);
         // 第一次参与分成的数量（解决第一次销售多个owner问题）
         uint256 firstAmount = nft.getFistAmount(seller, tokenId);
         if (firstAmount >= quantity) {
@@ -287,6 +295,8 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 tokenId = sellOrder.tokenId;
         address buyer = buyOrder.maker;
         uint256 realPrice = price.mul(amount);
+        address serviceFeeAddress = sellOrder.serviceFeeAddress;
+        uint256 serviceFeePoint = sellOrder.serviceFeePoint;
         settlement(
             tokenAddress,
             tokenId,
@@ -294,11 +304,13 @@ contract Market is EIP712, ReentrancyGuard {
             amount,
             seller,
             buyer,
-            currency
+            currency,
+            serviceFeeAddress,
+            serviceFeePoint
         );
+        uint256 total = amount;
+        _transfer(tokenAddress, tokenId, seller, buyer, total);
 
-        _transfer(tokenAddress, tokenId, seller, buyer, amount);
-
-        emit OrderMatched(sellHash, buyHash, seller, buyer, amount, realPrice);
+        emit OrderMatched(sellHash, buyHash, seller, buyer, total, realPrice);
     }
 }
