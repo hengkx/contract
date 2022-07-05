@@ -5,26 +5,29 @@ import '@nomiclabs/hardhat-waffle';
 import { HardhatUserConfig } from 'hardhat/config';
 import dotenv from 'dotenv';
 
-const { PRIVATE_KEY, PRIVATE_KEY1, ETHERSCAN_KEY, MUMBAI_KEY } = dotenv.config().parsed || {};
+const { CV_KEY, PRIVATE_KEY, PRIVATE_KEY1, ETHERSCAN_KEY, MUMBAI_KEY } =
+  dotenv.config().parsed || {};
+
+const accounts = [CV_KEY, PRIVATE_KEY, PRIVATE_KEY1];
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'rinkeby',
   networks: {
     mainnet: {
       url: 'https://mainnet.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
-      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+      accounts,
     },
     rinkeby: {
       url: 'https://rinkeby.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
-      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+      accounts,
     },
     polygon: {
       url: 'https://polygon-mainnet.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
-      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+      accounts,
     },
     polygonMumbai: {
       url: 'https://polygon-mumbai.infura.io/v3/9aed2a85b00a4b53a0780fd6154b1da3',
-      accounts: [PRIVATE_KEY, PRIVATE_KEY1],
+      accounts,
     },
   },
   etherscan: {
