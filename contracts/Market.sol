@@ -172,7 +172,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len - 1; i++) {
             Tradable.Recipient memory recipient = recipients[i];
-            uint256 currentFee = money.mul(recipient.points).div(100);
+            uint256 currentFee = money.mul(recipient.points).div(1000);
             _transferValue(currency, buyer, recipient.recipient, currentFee);
             paid += currentFee;
         }
@@ -197,8 +197,8 @@ contract Market is EIP712, ReentrancyGuard {
     ) public {
         Tradable nft = Tradable(tokenAddress);
         // 版税
-        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
-        uint256 serviceFee = money.mul(serviceFeePoint).div(100);
+        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(1000);
+        uint256 serviceFee = money.mul(serviceFeePoint).div(1000);
         _transferValue(currency, buyer, serviceFeeAddress, serviceFee);
         // 实际分给卖家的钱
         uint256 receipts = money.sub(fee).sub(serviceFee);
