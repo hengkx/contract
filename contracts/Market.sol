@@ -38,6 +38,7 @@ contract Market is EIP712, ReentrancyGuard {
         /* 1 sell 2 offer 3 auction */
         uint256 side;
         address serviceFeeAddress;
+        /* 服务费千分比 其余的百分比 */
         uint256 serviceFeePoint;
     }
 
@@ -174,7 +175,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 len = recipients.length;
         for (uint256 i = 0; i < len - 1; i++) {
             Tradable.Recipient memory recipient = recipients[i];
-            uint256 currentFee = money.mul(recipient.points).div(1000);
+            uint256 currentFee = money.mul(recipient.points).div(100);
             _transferValue(currency, buyer, recipient.recipient, currentFee);
             paid += currentFee;
         }
@@ -199,7 +200,8 @@ contract Market is EIP712, ReentrancyGuard {
     ) public {
         Tradable nft = Tradable(tokenAddress);
         // 版税
-        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(1000);
+        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+        // 服务费千分比 其余的百分比
         uint256 serviceFee = money.mul(serviceFeePoint).div(1000);
         _transferValue(currency, buyer, serviceFeeAddress, serviceFee);
         // 实际分给卖家的钱
