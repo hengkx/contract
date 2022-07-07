@@ -272,6 +272,14 @@ contract Market is EIP712, ReentrancyGuard {
         require(validateOrder(buyOrder, buyerSignature), "Invalid order.");
         require(!cancelledOrFinalized[buyHash], "Order already canceled.");
         require(sellOrder.price <= buyOrder.price, "Invalid price.");
+        require(
+            sellOrder.serviceFeeAddress == buyOrder.serviceFeeAddress,
+            "Invalid service fee address."
+        );
+        require(
+            sellOrder.serviceFeePoint == buyOrder.serviceFeePoint,
+            "Invalid service fee ponit."
+        );
 
         uint256 price = Math.max(sellOrder.price, buyOrder.price);
         if (msg.value > 0) {
