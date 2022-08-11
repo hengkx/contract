@@ -117,8 +117,7 @@ contract Market is EIP712, ReentrancyGuard {
         return ECDSA.recover(hash, signature) == order.maker;
     }
 
-    function cancelOrder(Order memory order, bytes memory signature) external {
-        require(validateOrder(order, signature), "Invalid order");
+    function cancelOrder(Order memory order) external {
         require(order.maker == msg.sender, "Not owner");
         bytes32 hash = hashOrder(order);
         cancelledOrFinalized[hash] = true;
