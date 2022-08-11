@@ -75,7 +75,7 @@ contract Market is EIP712, ReentrancyGuard {
         return 0;
     }
 
-    function hashOrder(Order memory order) public view returns (bytes32) {
+    function hashOrder(Order memory order) public pure returns (bytes32) {
         bytes32 hashStruct = keccak256(
             abi.encode(
                 ORDER_TYPE_HASH,
@@ -93,7 +93,7 @@ contract Market is EIP712, ReentrancyGuard {
                 order.serviceFeePoint
             )
         );
-        return _hashTypedDataV4(hashStruct);
+        return hashStruct;
     }
 
     function validateOrder(Order memory order, bytes memory signature)
@@ -113,12 +113,7 @@ contract Market is EIP712, ReentrancyGuard {
             return true;
         }
 
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                hashOrder(order)
-            )
-        );
+        bytes32 hash = _hashTypedDataV4(hashOrder(order));
         return ECDSA.recover(hash, signature) == order.maker;
     }
 
