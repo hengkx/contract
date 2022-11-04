@@ -40,6 +40,7 @@ contract Market is EIP712, ReentrancyGuard {
         address serviceFeeAddress;
         /* 服务费千分比 其余的百分比 */
         uint256 serviceFeePoint;
+        address tokenReceiver;
     }
 
     bytes32 constant ORDER_TYPE_HASH =
@@ -315,7 +316,11 @@ contract Market is EIP712, ReentrancyGuard {
             serviceFeePoint
         );
         uint256 total = amount;
-        _transfer(tokenAddress, tokenId, seller, buyer, total);
+        address realReceiver = buyOrder.maker;
+        if (buyOrder.tokenReceiver != address(0x0)) {
+            realReceiver = buyOrder.tokenReceiver;
+        }
+        _transfer(tokenAddress, tokenId, seller, realReceiver, total);
 
         emit OrderMatched(sellHash, buyHash, seller, buyer, total, realPrice);
     }
