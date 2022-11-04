@@ -104,7 +104,9 @@ contract Market is EIP712, ReentrancyGuard {
         returns (bool)
     {
         if (
-            order.expirationTime != 0 && order.expirationTime <= block.timestamp
+            order.listingTime > block.timestamp ||
+            (order.expirationTime != 0 &&
+                order.expirationTime <= block.timestamp)
         ) {
             return false;
         }
