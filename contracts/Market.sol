@@ -45,7 +45,7 @@ contract Market is EIP712, ReentrancyGuard {
 
     bytes32 constant ORDER_TYPE_HASH =
         keccak256(
-            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side,address serviceFeeAddress,uint256 serviceFeePoint)"
+            "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side,address serviceFeeAddress,uint256 serviceFeePoint,address tokenReceiver)"
         );
 
     event CancelOrder(bytes32 indexed hash);
@@ -91,7 +91,8 @@ contract Market is EIP712, ReentrancyGuard {
                 order.salt,
                 order.side,
                 order.serviceFeeAddress,
-                order.serviceFeePoint
+                order.serviceFeePoint,
+                order.tokenReceiver
             )
         );
         return hashStruct;
@@ -103,9 +104,7 @@ contract Market is EIP712, ReentrancyGuard {
         returns (bool)
     {
         if (
-            order.listingTime > block.timestamp ||
-            (order.expirationTime != 0 &&
-                order.expirationTime <= block.timestamp)
+            order.expirationTime != 0 && order.expirationTime <= block.timestamp
         ) {
             return false;
         }
@@ -266,7 +265,8 @@ contract Market is EIP712, ReentrancyGuard {
 
         require(validateOrder(buyOrder, buyerSignature), "Invalid order.");
         require(!cancelledOrFinalized[buyHash], "Order already canceled.");
-        require(sellOrder.price <= buyOrder.price, "Invalid price.");
+        require(sellOrder.price > 0, "Invalid price.");
+        require(sellOrder.price == buyOrder.price, "Invalid price.");
         require(
             sellOrder.serviceFeeAddress == buyOrder.serviceFeeAddress,
             "Invalid service fee address."
@@ -276,9 +276,8 @@ contract Market is EIP712, ReentrancyGuard {
             "Invalid service fee ponit."
         );
 
-        uint256 price = Math.max(sellOrder.price, buyOrder.price);
         if (msg.value > 0) {
-            require(price <= msg.value.div(amount), "Invalid price");
+            require(sellOrder.price == msg.value.div(amount), "Invalid price");
         }
 
         /* Mark previously signed or approved orders as finalized. */
@@ -301,9 +300,13 @@ contract Market is EIP712, ReentrancyGuard {
         address seller = sellOrder.maker;
         uint256 tokenId = sellOrder.tokenId;
         address buyer = buyOrder.maker;
-        uint256 realPrice = price.mul(amount);
+        address tokenReceiver = buyOrder.tokenReceiver != address(0x0)
+            ? buyOrder.tokenAddress
+            : buyOrder.maker;
+        uint256 realPrice = sellOrder.price.mul(amount);
         address serviceFeeAddress = sellOrder.serviceFeeAddress;
         uint256 serviceFeePoint = sellOrder.serviceFeePoint;
+
         settlement(
             tokenAddress,
             tokenId,
@@ -316,11 +319,8 @@ contract Market is EIP712, ReentrancyGuard {
             serviceFeePoint
         );
         uint256 total = amount;
-        address realReceiver = buyOrder.maker;
-        if (buyOrder.tokenReceiver != address(0x0)) {
-            realReceiver = buyOrder.tokenReceiver;
-        }
-        _transfer(tokenAddress, tokenId, seller, realReceiver, total);
+
+        _transfer(tokenAddress, tokenId, seller, tokenReceiver, total);
 
         emit OrderMatched(sellHash, buyHash, seller, buyer, total, realPrice);
     }
