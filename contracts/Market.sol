@@ -54,6 +54,7 @@ contract Market is EIP712, ReentrancyGuard {
         bytes32 indexed buyHash,
         address maker,
         address taker,
+        address tokenReceiver,
         uint256 amount,
         uint256 price
     );
@@ -324,6 +325,14 @@ contract Market is EIP712, ReentrancyGuard {
 
         _transfer(tokenAddress, tokenId, seller, tokenReceiver, total);
 
-        emit OrderMatched(sellHash, buyHash, seller, buyer, total, realPrice);
+        emit OrderMatched(
+            sellHash,
+            buyHash,
+            seller,
+            buyer,
+            tokenReceiver,
+            total,
+            realPrice
+        );
     }
 }
