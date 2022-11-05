@@ -303,7 +303,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 tokenId = sellOrder.tokenId;
         address buyer = buyOrder.maker;
         address tokenReceiver = buyOrder.tokenReceiver != address(0x0)
-            ? buyOrder.tokenAddress
+            ? buyOrder.tokenReceiver
             : buyOrder.maker;
         uint256 realPrice = sellOrder.price.mul(amount);
         address serviceFeeAddress = sellOrder.serviceFeeAddress;
