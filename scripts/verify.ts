@@ -1,13 +1,13 @@
-import { ethers, run } from 'hardhat';
+import { ethers, run } from "hardhat";
 
 async function main() {
-  const Market = await ethers.getContractFactory('Market');
-  const market = await Market.deploy();
-  console.log('Market deployed to:', market.address);
+  const Market = await ethers.getContractFactory("Market");
+  // const market = await Market.deploy();
+  // console.log('Market deployed to:', market.address);
 
-  // await run('verify:verify', {
-  //   address: '0x89a518FC6Cef07E6f9EBa1B3cA51EBFF2b35AdA7',
-  // });
+  await run("verify:verify", {
+    address: "0xdcb20770156ae32de0b9ec55bae2fec3d1668cd8",
+  });
   return;
   // const NFT = await ethers.getContractFactory('ERC721Tradable');
   // const feeRecipients = [['0x9454c9090074e7377ed6f8645708Dd529B3b0C15', 100]];
@@ -23,22 +23,22 @@ async function main() {
   // );
   // console.log(nft.address);
   // return;
-  await run('verify:verify', {
-    address: '0x3AC10d0C8ec2bfb7a00900c67A8b460894E3643E',
+  await run("verify:verify", {
+    address: "0x3AC10d0C8ec2bfb7a00900c67A8b460894E3643E",
     constructorArguments: [
-      'Unbalanced',
-      'HUX',
-      '0x78A1AEa5fAbD2078354CeBd4925F50B0C5D805aE',
+      "Unbalanced",
+      "HUX",
+      "0x78A1AEa5fAbD2078354CeBd4925F50B0C5D805aE",
       [
-        ['0x5FF52F93104684c799a8B78f90e6cA324B2d1d5d', 90],
-        ['0x64C1D3bDA744010c1c07eaCa94B31Eab448A07A4', 10],
+        ["0x5FF52F93104684c799a8B78f90e6cA324B2d1d5d", 90],
+        ["0x64C1D3bDA744010c1c07eaCa94B31Eab448A07A4", 10],
       ],
       10,
       [
-        ['0x5FF52F93104684c799a8B78f90e6cA324B2d1d5d', 90],
-        ['0x64C1D3bDA744010c1c07eaCa94B31Eab448A07A4', 10],
+        ["0x5FF52F93104684c799a8B78f90e6cA324B2d1d5d", 90],
+        ["0x64C1D3bDA744010c1c07eaCa94B31Eab448A07A4", 10],
       ],
-      'https://arweave.net/2knjR5WylHv0MhnoBSAIdgD1GliF0SGV1_9DRSLwwAE',
+      "https://arweave.net/2knjR5WylHv0MhnoBSAIdgD1GliF0SGV1_9DRSLwwAE",
     ],
     // libraries: {
     //   ProxyRegistry:
