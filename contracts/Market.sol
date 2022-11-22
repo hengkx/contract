@@ -336,4 +336,39 @@ contract Market is EIP712, ReentrancyGuard {
             realPrice
         );
     }
+
+    function buyWithCard(
+        Order memory sellOrder,
+        bytes memory sellerSignature,
+        address buyer,
+        uint256 amount
+    ) public payable nonReentrant {
+        bytes32 sellHash = hashOrder(sellOrder);
+        require(sellOrder.side == 1, "Order side error.");
+        require(validateOrder(sellOrder, sellerSignature), "Invalid order.");
+        require(!cancelledOrFinalized[sellHash], "Order already canceled.");
+
+        address currency = sellOrder.currency;
+        address tokenAddress = sellOrder.tokenAddress;
+        address seller = sellOrder.maker;
+        uint256 tokenId = sellOrder.tokenId;
+        uint256 realPrice = sellOrder.price.mul(amount);
+        address serviceFeeAddress = sellOrder.serviceFeeAddress;
+        uint256 serviceFeePoint = sellOrder.serviceFeePoint;
+
+        settlement(
+            tokenAddress,
+            tokenId,
+            realPrice,
+            amount,
+            seller,
+            buyer,
+            currency,
+            serviceFeeAddress,
+            serviceFeePoint
+        );
+        uint256 total = amount;
+
+        _transfer(tokenAddress, tokenId, seller, buyer, total);
+    }
 }
