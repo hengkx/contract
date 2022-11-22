@@ -362,7 +362,7 @@ contract Market is EIP712, ReentrancyGuard {
             realPrice,
             amount,
             seller,
-            buyer,
+            msg.sender,
             currency,
             serviceFeeAddress,
             serviceFeePoint
