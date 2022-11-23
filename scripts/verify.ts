@@ -6,7 +6,7 @@ async function main() {
   // console.log('Market deployed to:', market.address);
 
   await run("verify:verify", {
-    address: "0xdcb20770156ae32de0b9ec55bae2fec3d1668cd8",
+    address: "0x7ea1a12a8c8a5db4e1f0bf903080c7aa5f1e5c50",
   });
   return;
   // const NFT = await ethers.getContractFactory('ERC721Tradable');

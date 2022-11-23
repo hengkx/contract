@@ -59,6 +59,15 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 price
     );
 
+    event BuyWithCard(
+        bytes32 indexed sellHash,
+        address seller,
+        address sender,
+        address tokenReceiver,
+        uint256 amount,
+        uint256 price
+    );
+
     mapping(bytes32 => bool) public cancelledOrFinalized;
     mapping(bytes32 => uint256) _tradedAmounts;
 
@@ -347,6 +356,10 @@ contract Market is EIP712, ReentrancyGuard {
         require(sellOrder.side == 1, "Order side error.");
         require(validateOrder(sellOrder, sellerSignature), "Invalid order.");
         require(!cancelledOrFinalized[sellHash], "Order already canceled.");
+        if (sellOrder.amount - _tradedAmounts[sellHash] == amount) {
+            cancelledOrFinalized[sellHash] = true;
+        }
+        _tradedAmounts[sellHash] += amount;
 
         address currency = sellOrder.currency;
         address tokenAddress = sellOrder.tokenAddress;
@@ -370,5 +383,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 total = amount;
 
         _transfer(tokenAddress, tokenId, seller, buyer, total);
+
+        emit BuyWithCard(sellHash, seller, msg.sender, buyer, total, realPrice);
     }
 }
