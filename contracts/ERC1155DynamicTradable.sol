@@ -158,7 +158,7 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
     function setTokenURI(uint256 tokenId, string memory _tokenURI)
         public
         onlyOwner
-        whenPaused
+        whenNotPaused
     {
         _tokenURIs[tokenId] = _tokenURI;
     }
