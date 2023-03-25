@@ -3,10 +3,16 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 import "./Tradable.sol";
 import "./ProxyRegistry.sol";
 
-contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
+contract ERC1155Tradable is
+    Tradable,
+    ERC1155Pausable,
+    DefaultOperatorFilterer,
+    Ownable
+{
     using Counters for Counters.Counter;
     using Strings for uint256;
     Counters.Counter private _tokenIds;
@@ -64,12 +70,10 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         return tokenId;
     }
 
-    function isApprovedForAll(address owner, address operator)
-        public
-        view
-        override
-        returns (bool)
-    {
+    function isApprovedForAll(
+        address owner,
+        address operator
+    ) public view override returns (bool) {
         ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
         if (proxyRegistry.proxies(operator)) {
             return true;
@@ -103,12 +107,10 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         }
     }
 
-    function getFistAmount(address owner, uint256 tokenId)
-        public
-        view
-        override
-        returns (uint256)
-    {
+    function getFistAmount(
+        address owner,
+        uint256 tokenId
+    ) public view override returns (uint256) {
         return _firstSales[tokenId][owner];
     }
 
@@ -118,11 +120,7 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         return tokenSupply[_id];
     }
 
-    function burn(
-        address account,
-        uint256 id,
-        uint256 value
-    ) public {
+    function burn(address account, uint256 id, uint256 value) public {
         require(
             account == _msgSender() || isApprovedForAll(account, _msgSender()),
             "ERC1155: caller is not owner nor approved"
@@ -155,11 +153,37 @@ contract ERC1155Tradable is Tradable, ERC1155Pausable, Ownable {
         }
     }
 
-    function setTokenURI(uint256 tokenId, string memory _tokenURI)
-        public
-        onlyOwner
-        whenNotPaused
-    {
+    function setTokenURI(
+        uint256 tokenId,
+        string memory _tokenURI
+    ) public onlyOwner whenNotPaused {
         _tokenURIs[tokenId] = _tokenURI;
+    }
+
+    function setApprovalForAll(
+        address operator,
+        bool approved
+    ) public override onlyAllowedOperatorApproval(operator) {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 amount,
+        bytes memory data
+    ) public override onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId, amount, data);
+    }
+
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory amounts,
+        bytes memory data
+    ) public virtual override onlyAllowedOperator(from) {
+        super.safeBatchTransferFrom(from, to, ids, amounts, data);
     }
 }

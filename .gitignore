@@ -79,3 +79,6 @@ yarn.lock
 # contract
 artifacts
 cache
+typechain-types
+
+.DS_Store

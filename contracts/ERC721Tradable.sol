@@ -3,10 +3,16 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "operator-filter-registry/src/DefaultOperatorFilterer.sol";
 import "./Tradable.sol";
 import "./ProxyRegistry.sol";
 
-contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
+contract ERC721Tradable is
+    Tradable,
+    ERC721Pausable,
+    Ownable,
+    DefaultOperatorFilterer
+{
     using Strings for uint256;
     mapping(uint256 => uint256) private _firstSales;
 
@@ -29,13 +35,9 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         ERC721(name, symbol)
     {}
 
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 tokenId
+    ) public view virtual override returns (string memory) {
         require(
             _exists(tokenId),
             "ERC721Metadata: URI query for nonexistent token"
@@ -57,12 +59,10 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         return tokenId;
     }
 
-    function isApprovedForAll(address owner, address operator)
-        public
-        view
-        override
-        returns (bool)
-    {
+    function isApprovedForAll(
+        address owner,
+        address operator
+    ) public view override returns (bool) {
         ProxyRegistry proxyRegistry = ProxyRegistry(_proxyAddress);
         if (proxyRegistry.proxies(operator)) {
             return true;
@@ -97,12 +97,49 @@ contract ERC721Tradable is Tradable, ERC721Pausable, Ownable {
         _firstSales[tokenId] = 0;
     }
 
-    function getFistAmount(address, uint256 tokenId)
-        public
-        view
-        override
-        returns (uint256)
-    {
+    function getFistAmount(
+        address,
+        uint256 tokenId
+    ) public view override returns (uint256) {
         return _firstSales[tokenId];
+    }
+
+    function setApprovalForAll(
+        address operator,
+        bool approved
+    ) public override onlyAllowedOperatorApproval(operator) {
+        super.setApprovalForAll(operator, approved);
+    }
+
+    function approve(
+        address operator,
+        uint256 tokenId
+    ) public override onlyAllowedOperatorApproval(operator) {
+        super.approve(operator, tokenId);
+    }
+
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public override onlyAllowedOperator(from) {
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public override onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory data
+    ) public override onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId, data);
     }
 }
