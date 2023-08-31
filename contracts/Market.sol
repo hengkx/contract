@@ -183,7 +183,7 @@ contract Market is EIP712, ReentrancyGuard {
         );
     }
 
-    function checkRoyalties(address _contract) internal returns (bool) {
+    function checkRoyalties(address _contract) internal view returns (bool) {
         bool success = IERC165(_contract).supportsInterface(
             _INTERFACE_ID_ERC2981
         );
@@ -207,7 +207,12 @@ contract Market is EIP712, ReentrancyGuard {
         if (checkRoyalties(tokenAddress)) {
             (address receiver, uint256 royaltyAmount) = IERC2981(tokenAddress)
                 .royaltyInfo(tokenId, money);
-            _transferValue(currency, buyer, seller, money.sub(royaltyAmount));
+            _transferValue(
+                currency,
+                buyer,
+                seller,
+                money.sub(royaltyAmount).sub(serviceFee)
+            );
             _transferValue(currency, buyer, receiver, royaltyAmount);
         } else {
             Tradable nft = Tradable(tokenAddress);
