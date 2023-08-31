@@ -1,12 +1,12 @@
 import { ethers, run } from "hardhat";
 
 async function main() {
-  const Market = await ethers.getContractFactory("Market");
+  // const Market = await ethers.getContractFactory("Market");
   // const market = await Market.deploy();
   // console.log('Market deployed to:', market.address);
 
   await run("verify:verify", {
-    address: "0xdcb20770156ae32de0b9ec55bae2fec3d1668cd8",
+    address: "0x5809Cb16D31acB50F34B05944A3A31014f1Aa60a",
   });
   return;
   // const NFT = await ethers.getContractFactory('ERC721Tradable');

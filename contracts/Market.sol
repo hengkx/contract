@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.18;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./Tradable.sol";
 
 contract Market is EIP712, ReentrancyGuard {
@@ -16,6 +17,7 @@ contract Market is EIP712, ReentrancyGuard {
     using Counters for Counters.Counter;
     mapping(bytes => uint256) private _assetPrices;
     Counters.Counter private _itemIds;
+    bytes4 private constant _INTERFACE_ID_ERC2981 = 0x2a55205a;
 
     struct Order {
         /* Order contract address. */
@@ -64,11 +66,9 @@ contract Market is EIP712, ReentrancyGuard {
 
     constructor() EIP712("Culture Vault", "1.0.0") {}
 
-    function getTokenStandard(address tokenAddress)
-        public
-        view
-        returns (uint256)
-    {
+    function getTokenStandard(
+        address tokenAddress
+    ) public view returns (uint256) {
         if (IERC721(tokenAddress).supportsInterface(0x80ac58cd)) {
             return 721;
         } else if (IERC1155(tokenAddress).supportsInterface(0xd9b67a26)) {
@@ -99,11 +99,10 @@ contract Market is EIP712, ReentrancyGuard {
         return hashStruct;
     }
 
-    function validateOrder(Order memory order, bytes memory signature)
-        public
-        view
-        returns (bool)
-    {
+    function validateOrder(
+        Order memory order,
+        bytes memory signature
+    ) public view returns (bool) {
         if (
             order.listingTime > block.timestamp ||
             (order.expirationTime != 0 &&
@@ -184,6 +183,13 @@ contract Market is EIP712, ReentrancyGuard {
         );
     }
 
+    function checkRoyalties(address _contract) internal returns (bool) {
+        bool success = IERC165(_contract).supportsInterface(
+            _INTERFACE_ID_ERC2981
+        );
+        return success;
+    }
+
     function settlement(
         address tokenAddress,
         uint256 tokenId,
@@ -195,36 +201,44 @@ contract Market is EIP712, ReentrancyGuard {
         address serviceFeeAddress,
         uint256 serviceFeePoint
     ) public {
-        Tradable nft = Tradable(tokenAddress);
-        // 版税
-        uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
         // 服务费千分比 其余的百分比
         uint256 serviceFee = money.mul(serviceFeePoint).div(1000);
         _transferValue(currency, buyer, serviceFeeAddress, serviceFee);
-        // 实际分给卖家的钱
-        uint256 receipts = money.sub(fee).sub(serviceFee);
-        // 第一次参与分成的数量（解决第一次销售多个owner问题）
-        uint256 firstAmount = nft.getFistAmount(seller, tokenId);
-        if (firstAmount >= quantity) {
-            _settlement(nft.getSaleRecipients(), receipts, buyer, currency);
-        } else if (firstAmount > 0) {
-            uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
-            _settlement(
-                nft.getSaleRecipients(),
-                firstReceipts,
-                buyer,
-                currency
-            );
-            _transferValue(
-                currency,
-                buyer,
-                seller,
-                receipts.sub(firstReceipts)
-            );
+        if (checkRoyalties(tokenAddress)) {
+            (address receiver, uint256 royaltyAmount) = IERC2981(tokenAddress)
+                .royaltyInfo(tokenId, money);
+            _transferValue(currency, buyer, seller, money.sub(royaltyAmount));
+            _transferValue(currency, buyer, receiver, royaltyAmount);
         } else {
-            _transferValue(currency, buyer, seller, receipts);
+            Tradable nft = Tradable(tokenAddress);
+            // 版税
+            uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+
+            // 实际分给卖家的钱
+            uint256 receipts = money.sub(fee).sub(serviceFee);
+            // 第一次参与分成的数量（解决第一次销售多个owner问题）
+            uint256 firstAmount = nft.getFistAmount(seller, tokenId);
+            if (firstAmount >= quantity) {
+                _settlement(nft.getSaleRecipients(), receipts, buyer, currency);
+            } else if (firstAmount > 0) {
+                uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
+                _settlement(
+                    nft.getSaleRecipients(),
+                    firstReceipts,
+                    buyer,
+                    currency
+                );
+                _transferValue(
+                    currency,
+                    buyer,
+                    seller,
+                    receipts.sub(firstReceipts)
+                );
+            } else {
+                _transferValue(currency, buyer, seller, receipts);
+            }
+            _settlement(nft.getFeeRecipients(), fee, buyer, currency);
         }
-        _settlement(nft.getFeeRecipients(), fee, buyer, currency);
     }
 
     function _transfer(
