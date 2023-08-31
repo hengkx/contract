@@ -215,34 +215,36 @@ contract Market is EIP712, ReentrancyGuard {
             );
             _transferValue(currency, buyer, receiver, royaltyAmount);
         } else {
-            Tradable nft = Tradable(tokenAddress);
-            // 版税
-            uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+            _transferValue(currency, buyer, seller, money.sub(serviceFee));
 
-            // 实际分给卖家的钱
-            uint256 receipts = money.sub(fee).sub(serviceFee);
-            // 第一次参与分成的数量（解决第一次销售多个owner问题）
-            uint256 firstAmount = nft.getFistAmount(seller, tokenId);
-            if (firstAmount >= quantity) {
-                _settlement(nft.getSaleRecipients(), receipts, buyer, currency);
-            } else if (firstAmount > 0) {
-                uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
-                _settlement(
-                    nft.getSaleRecipients(),
-                    firstReceipts,
-                    buyer,
-                    currency
-                );
-                _transferValue(
-                    currency,
-                    buyer,
-                    seller,
-                    receipts.sub(firstReceipts)
-                );
-            } else {
-                _transferValue(currency, buyer, seller, receipts);
-            }
-            _settlement(nft.getFeeRecipients(), fee, buyer, currency);
+            // Tradable nft = Tradable(tokenAddress);
+            // // 版税
+            // uint256 fee = money.mul(nft.getSellerFeeBasisPoints()).div(100);
+
+            // // 实际分给卖家的钱
+            // uint256 receipts = money.sub(fee).sub(serviceFee);
+            // // 第一次参与分成的数量（解决第一次销售多个owner问题）
+            // uint256 firstAmount = nft.getFistAmount(seller, tokenId);
+            // if (firstAmount >= quantity) {
+            //     _settlement(nft.getSaleRecipients(), receipts, buyer, currency);
+            // } else if (firstAmount > 0) {
+            //     uint256 firstReceipts = receipts.div(quantity).mul(firstAmount);
+            //     _settlement(
+            //         nft.getSaleRecipients(),
+            //         firstReceipts,
+            //         buyer,
+            //         currency
+            //     );
+            //     _transferValue(
+            //         currency,
+            //         buyer,
+            //         seller,
+            //         receipts.sub(firstReceipts)
+            //     );
+            // } else {
+            //     _transferValue(currency, buyer, seller, receipts);
+            // }
+            // _settlement(nft.getFeeRecipients(), fee, buyer, currency);
         }
     }
 
