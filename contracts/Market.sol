@@ -207,12 +207,8 @@ contract Market is EIP712, ReentrancyGuard {
         if (checkRoyalties(tokenAddress)) {
             (address receiver, uint256 royaltyAmount) = IERC2981(tokenAddress)
                 .royaltyInfo(tokenId, money);
-            _transferValue(
-                currency,
-                buyer,
-                seller,
-                money.sub(royaltyAmount).sub(serviceFee)
-            );
+            uint256 fee = money.sub(royaltyAmount).sub(serviceFee);
+            _transferValue(currency, buyer, seller, fee);
             _transferValue(currency, buyer, receiver, royaltyAmount);
         } else {
             _transferValue(currency, buyer, seller, money.sub(serviceFee));
