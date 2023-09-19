@@ -209,7 +209,7 @@ contract Market is EIP712, ReentrancyGuard {
                 .royaltyInfo(tokenId, money);
             uint256 fee = money.sub(royaltyAmount).sub(serviceFee);
             _transferValue(currency, buyer, seller, fee);
-            _transferValue(currency, buyer, receiver, royaltyAmount);
+            // _transferValue(currency, buyer, receiver, royaltyAmount);
         } else {
             _transferValue(currency, buyer, seller, money.sub(serviceFee));
 
