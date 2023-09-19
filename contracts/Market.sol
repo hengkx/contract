@@ -154,7 +154,9 @@ contract Market is EIP712, ReentrancyGuard {
     ) private {
         if (value > 0) {
             if (currency == address(0)) {
-                payable(to).transfer(value);
+                // payable(to).transfer(value);
+                (bool success, ) = to.call{value: value}("");
+                require(success, "Transfer failed.");
             } else {
                 ERC20(currency).transferFrom(from, to, value);
             }
