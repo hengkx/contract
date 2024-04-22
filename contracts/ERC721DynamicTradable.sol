@@ -14,6 +14,7 @@ contract ERC721Tradable is
     DefaultOperatorFilterer
 {
     using Strings for uint256;
+    // 存储NFT是否第一次销售
     mapping(uint256 => uint256) private _firstSales;
 
     constructor(
@@ -143,6 +144,7 @@ contract ERC721Tradable is
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
+    // 修改NFT的元数据链接
     function setTokenURI(
         uint256 tokenId,
         string memory _tokenURI

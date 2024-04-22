@@ -15,8 +15,11 @@ import "./Tradable.sol";
 contract Market is EIP712, ReentrancyGuard {
     using SafeMath for uint256;
     using Counters for Counters.Counter;
+    // TODO remove 最新板块未使用
     mapping(bytes => uint256) private _assetPrices;
+    // TODO remove 最新板块未使用
     Counters.Counter private _itemIds;
+    // 2981协议标识
     bytes4 private constant _INTERFACE_ID_ERC2981 = 0x2a55205a;
 
     struct Order {
@@ -42,15 +45,18 @@ contract Market is EIP712, ReentrancyGuard {
         address serviceFeeAddress;
         /* 服务费千分比 其余的百分比 */
         uint256 serviceFeePoint;
+        /* nft的接收人 */
         address tokenReceiver;
     }
 
+    // 订单类型HASH
     bytes32 constant ORDER_TYPE_HASH =
         keccak256(
             "Order(address tokenAddress,uint256 tokenId,address maker,address currency,uint256 price,uint256 amount,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 side,address serviceFeeAddress,uint256 serviceFeePoint,address tokenReceiver)"
         );
-
+    // 取消订单事件
     event CancelOrder(bytes32 indexed hash);
+    // 订单交易事件
     event OrderMatched(
         bytes32 indexed sellHash,
         bytes32 indexed buyHash,
@@ -60,12 +66,14 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 amount,
         uint256 price
     );
-
+    // 存储订单取消或已完成
     mapping(bytes32 => bool) public cancelledOrFinalized;
+    // 存储订单已完成数量
     mapping(bytes32 => uint256) _tradedAmounts;
 
     constructor() EIP712("Culture Vault", "1.0.0") {}
 
+    // 合约合约类型
     function getTokenStandard(
         address tokenAddress
     ) public view returns (uint256) {
@@ -77,6 +85,7 @@ contract Market is EIP712, ReentrancyGuard {
         return 0;
     }
 
+    // 获取订单HASH
     function hashOrder(Order memory order) public pure returns (bytes32) {
         bytes32 hashStruct = keccak256(
             abi.encode(
@@ -99,10 +108,12 @@ contract Market is EIP712, ReentrancyGuard {
         return hashStruct;
     }
 
+    // 校验订单
     function validateOrder(
         Order memory order,
         bytes memory signature
     ) public view returns (bool) {
+        // 判断订单日期是否合法
         if (
             order.listingTime > block.timestamp ||
             (order.expirationTime != 0 &&
@@ -119,6 +130,7 @@ contract Market is EIP712, ReentrancyGuard {
         return ECDSA.recover(hash, signature) == order.maker;
     }
 
+    // 取消订单
     function cancelOrder(Order memory order) external {
         require(order.maker == msg.sender, "Not owner");
         bytes32 hash = hashOrder(order);
@@ -126,6 +138,7 @@ contract Market is EIP712, ReentrancyGuard {
         emit CancelOrder(hash);
     }
 
+    // 判断是否有操作订单的权限
     function isApproved(Order memory order) public view returns (bool) {
         uint256 tokenStandard = getTokenStandard(order.tokenAddress);
         if (tokenStandard == 721) {
@@ -146,6 +159,7 @@ contract Market is EIP712, ReentrancyGuard {
         return false;
     }
 
+    // 转移钱
     function _transferValue(
         address currency,
         address from,
@@ -153,6 +167,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 value
     ) private {
         if (value > 0) {
+            // 判断是否主币
             if (currency == address(0)) {
                 // payable(to).transfer(value);
                 (bool success, ) = to.call{value: value}("");
@@ -163,6 +178,7 @@ contract Market is EIP712, ReentrancyGuard {
         }
     }
 
+    // TODO remove 最新版本未使用
     function _settlement(
         Tradable.Recipient[] memory recipients,
         uint256 money,
@@ -185,6 +201,7 @@ contract Market is EIP712, ReentrancyGuard {
         );
     }
 
+    // 检测合约是否支持2981协议
     function checkRoyalties(address _contract) internal view returns (bool) {
         bool success = IERC165(_contract).supportsInterface(
             _INTERFACE_ID_ERC2981
@@ -192,6 +209,7 @@ contract Market is EIP712, ReentrancyGuard {
         return success;
     }
 
+    // 转移钱
     function settlement(
         address tokenAddress,
         uint256 tokenId,
@@ -206,6 +224,7 @@ contract Market is EIP712, ReentrancyGuard {
         // 服务费千分比 其余的百分比
         uint256 serviceFee = money.mul(serviceFeePoint).div(1000);
         _transferValue(currency, buyer, serviceFeeAddress, serviceFee);
+        // 判断是否支持版税协议结算前
         if (checkRoyalties(tokenAddress)) {
             (address receiver, uint256 royaltyAmount) = IERC2981(tokenAddress)
                 .royaltyInfo(tokenId, money);
@@ -246,6 +265,7 @@ contract Market is EIP712, ReentrancyGuard {
         }
     }
 
+    // 转移NFT
     function _transfer(
         address tokenAddress,
         uint256 tokenId,
@@ -268,6 +288,7 @@ contract Market is EIP712, ReentrancyGuard {
         }
     }
 
+    // 订单执行
     function orderMatch(
         Order memory sellOrder,
         bytes memory sellerSignature,
@@ -275,7 +296,9 @@ contract Market is EIP712, ReentrancyGuard {
         bytes memory buyerSignature,
         uint256 amount
     ) public payable nonReentrant {
+        // 销售订单Hash
         bytes32 sellHash = hashOrder(sellOrder);
+        // 买家订单Hash
         bytes32 buyHash = hashOrder(buyOrder);
         require(
             sellOrder.side == 1 || sellOrder.side == 3,
@@ -329,7 +352,7 @@ contract Market is EIP712, ReentrancyGuard {
         uint256 realPrice = buyOrder.price.mul(amount);
         address serviceFeeAddress = sellOrder.serviceFeeAddress;
         uint256 serviceFeePoint = sellOrder.serviceFeePoint;
-
+        // 结算
         settlement(
             tokenAddress,
             tokenId,
@@ -342,9 +365,9 @@ contract Market is EIP712, ReentrancyGuard {
             serviceFeePoint
         );
         uint256 total = amount;
-
+        // 转移NFT
         _transfer(tokenAddress, tokenId, seller, tokenReceiver, total);
-
+        // 发送成交事件
         emit OrderMatched(
             sellHash,
             buyHash,

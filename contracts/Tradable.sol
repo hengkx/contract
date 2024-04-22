@@ -5,21 +5,33 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+/**
+ * NFT基类
+ */
 abstract contract Tradable {
     using SafeMath for uint256;
 
     struct Recipient {
+        // 接收者地址
         address recipient;
+        // 分成比例
         uint256 points;
     }
 
+    // 代理合约地址
     address internal _proxyAddress;
+    // 卖家分成比例
     Recipient[] private _saleRecipients;
+    // 卖家分成比例
     uint256 private _sellerFeeBasisPoints;
+    // 手续费分成比例
     Recipient[] private _feeRecipients;
+    // 合约元数据链接
     string private _contractURI;
 
+    // NFT对应的铸造者
     mapping(uint256 => address) internal _creators;
+    // NFT对应的元数据链接
     mapping(uint256 => string) internal _tokenURIs;
 
     constructor(
@@ -66,21 +78,23 @@ abstract contract Tradable {
         return _sellerFeeBasisPoints;
     }
 
-    function _setTokenURI(uint256 tokenId, string memory _tokenURI)
-        internal
-        virtual
-    {
+    /**
+     * 设置NFT的元数据链接
+     */
+    function _setTokenURI(
+        uint256 tokenId,
+        string memory _tokenURI
+    ) internal virtual {
         _tokenURIs[tokenId] = _tokenURI;
     }
 
     /**
      * 获取第一次销售分成的数量
      */
-    function getFistAmount(address owner, uint256 tokenId)
-        public
-        view
-        virtual
-        returns (uint256);
+    function getFistAmount(
+        address owner,
+        uint256 tokenId
+    ) public view virtual returns (uint256);
 
     function contractURI() public view returns (string memory) {
         return _contractURI;

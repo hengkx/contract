@@ -2,6 +2,9 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+ * 代理合约注册
+ */
 contract ProxyRegistry is Ownable {
     mapping(address => bool) public proxies;
 

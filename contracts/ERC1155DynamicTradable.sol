@@ -17,6 +17,7 @@ contract ERC1155Tradable is
     using Strings for uint256;
     Counters.Counter private _tokenIds;
 
+    // 存储NFT是否第一次销售
     mapping(uint256 => mapping(address => uint256)) private _firstSales;
 
     string private _name;
@@ -107,6 +108,7 @@ contract ERC1155Tradable is
         }
     }
 
+    // 获取第一次销售分成的数量
     function getFistAmount(
         address owner,
         uint256 tokenId
@@ -114,8 +116,10 @@ contract ERC1155Tradable is
         return _firstSales[tokenId][owner];
     }
 
+    // 存储NFT的总供应量
     mapping(uint256 => uint256) public tokenSupply;
 
+    // 获取NFT的总供应量
     function totalSupply(uint256 _id) public view returns (uint256) {
         return tokenSupply[_id];
     }
@@ -153,6 +157,7 @@ contract ERC1155Tradable is
         }
     }
 
+    // 修改NFT的元数据链接
     function setTokenURI(
         uint256 tokenId,
         string memory _tokenURI

@@ -14,6 +14,7 @@ contract ERC721Tradable is
     DefaultOperatorFilterer
 {
     using Strings for uint256;
+    // 存储NFT是否第一次销售
     mapping(uint256 => uint256) private _firstSales;
 
     constructor(
